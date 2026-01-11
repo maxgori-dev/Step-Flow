@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+
+    <color name="sf_white">#FFFFFF</color>
+    <color name="sf_black">#111111</color>
+    <color name="sf_bg">#FFFFFF</color>
+    <color name="sf_bg_dark">#FFFFFF</color>
+    <color name="sf_text_primary">#111111</color>
+    <color name="sf_text_secondary">#8E8E93</color>
+    <color name="sf_outline">#E5E5EA</color>
+    <color name="sf_accent">#3A5AFF</color>
+    <color name="sf_disabled_bg">#E9E9EC</color>
+    <color name="sf_disabled_text">#B0B0B5</color>
+
 </resources>
