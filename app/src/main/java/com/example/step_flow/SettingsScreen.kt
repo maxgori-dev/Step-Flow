@@ -2,7 +2,6 @@ package com.example.step_flow
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -19,13 +18,14 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
@@ -88,6 +88,7 @@ fun SettingsScreen(
     onThemeChange: (AppTheme) -> Unit,
     onFontScaleChange: (Float) -> Unit,
     onNotificationsChange: (Boolean) -> Unit,
+    onGoalsClick: () -> Unit, // 👈 НОВЫЙ ПАРАМЕТР
     onBack: () -> Unit,
     onSave: () -> Unit
 ) {
@@ -187,6 +188,21 @@ fun SettingsScreen(
                         modifier = Modifier.padding(start = 6.dp * uiScale, bottom = 12.dp * uiScale)
                     )
                 }
+
+                // ===== GOALS (НОВАЯ СЕКЦИЯ) =====
+                item { SectionTitle(text = "GOALS", scale = uiScale) }
+                item {
+                    SettingsCard(scale = uiScale) {
+                        SettingsActionRow(
+                            scale = uiScale,
+                            title = "Daily Goals",
+                            subtitle = "Steps, duration & calories",
+                            icon = Icons.Outlined.Flag, // Убедитесь, что иконка импортирована
+                            onClick = onGoalsClick
+                        )
+                    }
+                }
+                item { Spacer(Modifier.height(16.dp * uiScale)) }
 
                 // ===== GENERAL =====
                 item { SectionTitle(text = "GENERAL", scale = uiScale) }
@@ -301,6 +317,48 @@ private fun SettingsCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(vertical = 6.dp * scale), content = content)
+    }
+}
+
+@Composable
+private fun SettingsActionRow(
+    scale: Float,
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = Color(0xFF111111), modifier = Modifier.size(22.dp * scale))
+        Spacer(Modifier.width(14.dp * scale))
+
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = (16.sp * scale),
+                color = Color(0xFF111111),
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(2.dp * scale))
+            Text(
+                text = subtitle,
+                fontSize = (13.sp * scale),
+                color = Color(0xFF6F747C)
+            )
+        }
+
+        Icon(
+            imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
+            contentDescription = null,
+            tint = Color(0xFFB0B2B8),
+            modifier = Modifier.size(18.dp * scale)
+        )
     }
 }
 

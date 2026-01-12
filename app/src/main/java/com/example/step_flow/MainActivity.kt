@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val ui by vm.uiState.collectAsStateWithLifecycle()
             val uploadState by vm.uploadState.collectAsStateWithLifecycle()
+            val goals by vm.goals.collectAsStateWithLifecycle()
 
             val runsList by vm.runsFlow.collectAsStateWithLifecycle()
             var selectedRun by remember { mutableStateOf<RunModel?>(null) }
@@ -224,10 +225,13 @@ class MainActivity : ComponentActivity() {
 
                             3 -> {
                                 ActivityCalendarScreen(
+                                    runs = runsList,
+                                    goalSteps = goals.first,
+                                    goalMinutes = goals.second,
+                                    goalKcal = goals.third,
                                     initialSelectedDate = selectedDate,
                                     onPickDay = { date -> selectedDate = date },
-                                    onBack = { goBack() },
-                                    onPickMonth = { /* TODO */ }
+                                    onBack = { goBack() }
                                 )
                             }
 
@@ -276,6 +280,7 @@ class MainActivity : ComponentActivity() {
                                     onThemeChange = { theme = it },
                                     onFontScaleChange = { fontScale = it },
                                     onNotificationsChange = { notificationsEnabled = it },
+                                    onGoalsClick = { navigate(15) },
                                     onBack = { goBack() },
                                     onSave = { goBack() }
                                 )
@@ -346,6 +351,18 @@ class MainActivity : ComponentActivity() {
                                     name = savedName,
                                     avatarUriString = savedAvatarUri,
                                     onBack = { goBack() }
+                                )
+                            }
+                            15 -> {
+                                GoalsScreen(
+                                    currentSteps = goals.first,
+                                    currentMinutes = goals.second,
+                                    currentKcal = goals.third,
+                                    onBack = { goBack() },
+                                    onSave = { s, m, k ->
+                                        vm.saveGoals(s, m, k)
+                                        goBack()
+                                    }
                                 )
                             }
                         }

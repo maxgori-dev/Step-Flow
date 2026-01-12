@@ -20,6 +20,7 @@ import android.net.Uri
 import java.util.UUID
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 
 sealed class UploadState {
@@ -162,6 +163,36 @@ class MainViewModel @Inject constructor(
             prefs.awaitFirstLoad()
             loadedFlag.value = true
         }
+    }
+
+    // Храним цели: Шаги, Минуты, Калории
+    private val _goals = MutableStateFlow(Triple(6000, 45, 500))
+    val goals = _goals.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            prefs.awaitFirstLoad()
+            loadedFlag.value = true
+            loadGoals() // Загружаем цели при старте
+        }
+    }
+
+    private fun loadGoals() {
+        val sp = context.getSharedPreferences("user_goals", Context.MODE_PRIVATE)
+        val s = sp.getInt("goal_steps", 6000)
+        val m = sp.getInt("goal_minutes", 45)
+        val k = sp.getInt("goal_kcal", 500)
+        _goals.value = Triple(s, m, k)
+    }
+
+    fun saveGoals(steps: Int, minutes: Int, kcal: Int) {
+        val sp = context.getSharedPreferences("user_goals", Context.MODE_PRIVATE)
+        sp.edit()
+            .putInt("goal_steps", steps)
+            .putInt("goal_minutes", minutes)
+            .putInt("goal_kcal", kcal)
+            .apply()
+        _goals.value = Triple(steps, minutes, kcal)
     }
 
     fun saveName(value: String) {
