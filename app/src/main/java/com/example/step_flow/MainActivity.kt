@@ -173,7 +173,7 @@ class MainActivity : ComponentActivity() {
                             // 2 — Home
                             2 -> {
                                 HomeScreenNow(
-                                    onRunClick = { /* TODO */ },
+                                    onRunClick = { navigate(10) },
                                     onTileCalendar = { navigate(3) },
                                     onTileHistory = { /* TODO */ },
                                     onTileAchievements = { /* TODO */ },
