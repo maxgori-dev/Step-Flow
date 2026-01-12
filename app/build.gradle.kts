@@ -8,6 +8,8 @@ plugins {
     alias(libs.plugins.hilt)
 
     alias(libs.plugins.androidx.baselineprofile)
+
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -94,6 +96,13 @@ dependencies {
 
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.lifecycle.runtime.compose)
+
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.storage)
+
+    // Coil (для загрузки фото карт)
+    implementation(libs.coil.compose)
 
 }
 
