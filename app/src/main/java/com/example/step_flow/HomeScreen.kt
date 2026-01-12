@@ -5,21 +5,26 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.EmojiEvents
@@ -83,138 +88,176 @@ fun HomeScreenNow(
 
     var tab by remember { mutableStateOf(HomeTab.Home) }
     val haptics = LocalHapticFeedback.current
-
     val pageBg = Brush.verticalGradient(listOf(bg, soft))
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(pageBg)
-            .statusBarsPadding()
-            .safeDrawingPadding()
+            .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 18.dp)
-        ) {
-            Spacer(Modifier.height(10.dp))
+        // База для адаптива: считаем от "короткой" стороны
+        val minDim = minOf(maxWidth, maxHeight)
+        val uiScale = (minDim / 390.dp).coerceIn(0.82f, 1.20f)
 
-            // ===== TOP BAR =====
-            Row(
+        val padH = 18.dp * uiScale
+        val gapS = 10.dp * uiScale
+        val gapM = 18.dp * uiScale
+        val gapL = 26.dp * uiScale
+
+        val topBarH = (56.dp * uiScale).coerceIn(48.dp, 64.dp)
+        val navH = (76.dp * uiScale).coerceIn(64.dp, 90.dp)
+
+        val ringWrap = (minDim * 0.60f).coerceIn(210.dp, 300.dp)
+        val ringCore = (ringWrap * 0.74f).coerceIn(150.dp, 230.dp)
+
+        val scroll = rememberScrollState()
+
+        Box(Modifier.fillMaxSize()) {
+            // Контент скроллится, чтобы на маленьких экранах ничего не обрезалось
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .verticalScroll(scroll)
+                    .padding(horizontal = padH)
+                    // снизу место под BottomNav
+                    .padding(bottom = navH + gapM)
             ) {
-                Text(
-                    text = "StepFlow",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = textMain
-                )
+                Spacer(Modifier.height(gapS))
 
-                Spacer(Modifier.weight(1f))
+                // ===== TOP BAR =====
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(topBarH),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "StepFlow",
+                        fontSize = (22.sp * uiScale),
+                        fontWeight = FontWeight.SemiBold,
+                        color = textMain
+                    )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    IconButton(
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onTopProfile()
-                        },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Person,
-                            contentDescription = "Profile",
-                            tint = textMain,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+                    Spacer(Modifier.weight(1f))
 
-                    IconButton(
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onTopSettings()
-                        },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Settings,
-                            contentDescription = "Settings",
-                            tint = textMain,
-                            modifier = Modifier.size(22.dp)
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp * uiScale)) {
+                        IconButton(
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onTopProfile()
+                            },
+                            modifier = Modifier.size(40.dp * uiScale)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Person,
+                                contentDescription = "Profile",
+                                tint = textMain,
+                                modifier = Modifier.size(22.dp * uiScale)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onTopSettings()
+                            },
+                            modifier = Modifier.size(40.dp * uiScale)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Settings,
+                                contentDescription = "Settings",
+                                tint = textMain,
+                                modifier = Modifier.size(22.dp * uiScale)
+                            )
+                        }
                     }
                 }
+
+                Spacer(Modifier.height(gapM))
+
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    RunRing(
+                        wrapSize = ringWrap,
+                        coreSize = ringCore,
+                        scale = uiScale,
+                        ring1 = ring1,
+                        ring2 = ring2,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onRunClick()
+                        }
+                    )
+                }
+
+                Spacer(Modifier.height(gapL))
+
+                Text(
+                    text = "Quick actions",
+                    fontSize = (13.sp * uiScale),
+                    color = textSoft,
+                    modifier = Modifier.padding(start = 6.dp * uiScale, bottom = 10.dp * uiScale)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp * uiScale)
+                ) {
+                    // Плитки сами подстраиваются по ширине -> высота через aspectRatio
+                    QuickTile(
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1.05f),
+                        scale = uiScale,
+                        icon = Icons.Outlined.CalendarToday,
+                        label = "Calendar",
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onTileCalendar()
+                        }
+                    )
+
+                    QuickTile(
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1.05f),
+                        scale = uiScale,
+                        icon = Icons.Outlined.History,
+                        label = "History",
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onTileHistory()
+                        }
+                    )
+
+                    QuickTile(
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1.05f),
+                        scale = uiScale,
+                        icon = Icons.Outlined.EmojiEvents,
+                        label = "Awards",
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onTileAchievements()
+                        }
+                    )
+                }
+
+                Spacer(Modifier.height(gapM))
             }
 
-            Spacer(Modifier.height(18.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                RunRing(
-                    wrapSize = 236.dp,
-                    coreSize = 174.dp,
-                    ring1 = ring1,
-                    ring2 = ring2,
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onRunClick()
-                    }
-                )
-            }
-
-            Spacer(Modifier.height(26.dp))
-
-            Text(
-                text = "Quick actions",
-                fontSize = 13.sp,
-                color = textSoft,
-                modifier = Modifier.padding(start = 6.dp, bottom = 10.dp)
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                QuickTile(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Outlined.CalendarToday,
-                    label = "Calendar",
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onTileCalendar()
-                    }
-                )
-
-                QuickTile(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Outlined.History,
-                    label = "History",
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onTileHistory()
-                    }
-                )
-
-                QuickTile(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Outlined.EmojiEvents,
-                    label = "Awards",
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onTileAchievements()
-                    }
-                )
-            }
-
-            Spacer(Modifier.weight(1f))
-
+            // BottomNav всегда снизу (не ломается на маленьких экранах)
             BottomNav(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = padH)
+                    .padding(bottom = 10.dp * uiScale),
+                height = navH,
+                scale = uiScale,
                 activeTab = tab,
                 inactiveColor = navInactive,
                 activeColor = navActive,
@@ -224,8 +267,6 @@ fun HomeScreenNow(
                     onBottomTabChange(it)
                 }
             )
-
-            Spacer(Modifier.height(10.dp))
         }
     }
 }
@@ -234,6 +275,7 @@ fun HomeScreenNow(
 private fun RunRing(
     wrapSize: Dp,
     coreSize: Dp,
+    scale: Float,
     ring1: Color,
     ring2: Color,
     onClick: () -> Unit
@@ -241,7 +283,7 @@ private fun RunRing(
     Box(
         modifier = Modifier
             .size(wrapSize)
-            .shadow(14.dp, CircleShape, clip = false)
+            .shadow(14.dp * scale, CircleShape, clip = false)
             .clip(CircleShape)
             .background(Color.White),
         contentAlignment = Alignment.Center
@@ -287,7 +329,7 @@ private fun RunRing(
         Box(
             modifier = Modifier
                 .size(coreSize)
-                .shadow(10.dp, CircleShape, clip = false)
+                .shadow(10.dp * scale, CircleShape, clip = false)
                 .clip(CircleShape)
                 .background(Color(0xFFF3F5F8))
                 .clickable(onClick = onClick),
@@ -295,9 +337,9 @@ private fun RunRing(
         ) {
             Text(
                 text = "RUN",
-                fontSize = 18.sp,
+                fontSize = (18.sp * scale),
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 3.sp,
+                letterSpacing = (3.sp * scale),
                 color = Color(0xFF7C848F)
             )
         }
@@ -307,34 +349,33 @@ private fun RunRing(
 @Composable
 private fun QuickTile(
     modifier: Modifier,
+    scale: Float,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(22.dp)
+    val shape = RoundedCornerShape(22.dp * scale)
     val textMain = Color(0xFF111111)
     val textSoft = Color(0xFF6F747C)
 
     Surface(
-        modifier = modifier
-            .height(104.dp)
-            .clickable(onClick = onClick),
+        modifier = modifier.clickable(onClick = onClick),
         shape = shape,
         color = Color.White,
         tonalElevation = 0.dp,
-        shadowElevation = 8.dp
+        shadowElevation = 8.dp * scale
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp * scale, vertical = 12.dp * scale),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .size(44.dp * scale)
+                    .clip(RoundedCornerShape(14.dp * scale))
                     .background(Color(0xFFF3F5F8)),
                 contentAlignment = Alignment.Center
             ) {
@@ -342,15 +383,15 @@ private fun QuickTile(
                     imageVector = icon,
                     contentDescription = label,
                     tint = textMain,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(22.dp * scale)
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(10.dp * scale))
 
             Text(
                 text = label,
-                fontSize = 13.sp,
+                fontSize = (13.sp * scale),
                 fontWeight = FontWeight.SemiBold,
                 color = textSoft
             )
@@ -360,30 +401,35 @@ private fun QuickTile(
 
 @Composable
 private fun BottomNav(
+    modifier: Modifier,
+    height: Dp,
+    scale: Float,
     activeTab: HomeTab,
     inactiveColor: Color,
     activeColor: Color,
     onSelect: (HomeTab) -> Unit
 ) {
-    val shape = RoundedCornerShape(26.dp)
+    val shape = RoundedCornerShape(26.dp * scale)
 
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .height(76.dp),
+            .height(height),
         shape = shape,
         color = Color.White,
         tonalElevation = 0.dp,
-        shadowElevation = 10.dp
+        shadowElevation = 10.dp * scale
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 10.dp),
+                .padding(horizontal = 10.dp * scale),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
             BottomItem(
+                modifier = Modifier.weight(1f),
+                scale = scale,
                 label = "Calendar",
                 icon = Icons.Outlined.CalendarToday,
                 selected = activeTab == HomeTab.Calendar,
@@ -392,6 +438,8 @@ private fun BottomNav(
             ) { onSelect(HomeTab.Calendar) }
 
             BottomItem(
+                modifier = Modifier.weight(1f),
+                scale = scale,
                 label = "Home",
                 icon = Icons.Outlined.Home,
                 selected = activeTab == HomeTab.Home,
@@ -400,6 +448,8 @@ private fun BottomNav(
             ) { onSelect(HomeTab.Home) }
 
             BottomItem(
+                modifier = Modifier.weight(1f),
+                scale = scale,
                 label = "Profile",
                 icon = Icons.Outlined.Person,
                 selected = activeTab == HomeTab.Profile,
@@ -412,6 +462,8 @@ private fun BottomNav(
 
 @Composable
 private fun BottomItem(
+    modifier: Modifier,
+    scale: Float,
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     selected: Boolean,
@@ -424,10 +476,9 @@ private fun BottomItem(
     val weight = if (selected) FontWeight.SemiBold else FontWeight.Medium
 
     Column(
-        modifier = Modifier
-            .width(96.dp)
+        modifier = modifier
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+            .padding(vertical = 10.dp * scale),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -436,25 +487,25 @@ private fun BottomItem(
             contentDescription = label,
             tint = textColor,
             modifier = Modifier
-                .size(22.dp)
-                .offset(y = (-1).dp)
+                .size(22.dp * scale)
+                .offset(y = (-1).dp * scale)
                 .alpha(iconAlpha)
         )
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(6.dp * scale))
 
         Text(
             text = label,
-            fontSize = 12.sp,
+            fontSize = (12.sp * scale),
             color = textColor,
             fontWeight = weight
         )
 
         Box(
             modifier = Modifier
-                .padding(top = 6.dp)
-                .height(3.dp)
-                .width(if (selected) 22.dp else 8.dp)
+                .padding(top = 6.dp * scale)
+                .height(3.dp * scale)
+                .width((if (selected) 22.dp else 8.dp) * scale)
                 .clip(RoundedCornerShape(99.dp))
                 .background(textColor.copy(alpha = if (selected) 0.55f else 0.18f))
         )

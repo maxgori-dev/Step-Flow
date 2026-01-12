@@ -15,9 +15,28 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ArrowForwardIos
@@ -26,9 +45,21 @@ import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +73,7 @@ import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import kotlin.math.PI
 import kotlin.math.cos
@@ -52,8 +84,8 @@ import kotlin.math.sin
 fun ProfileScreen(
     modifier: Modifier = Modifier,
     name: String,
-    avatarUriString: String,                 // ✅ приходит из DataStore (ui.avatarUri)
-    onAvatarChange: (String) -> Unit,        // ✅ сохраняем в DataStore (vm.saveAvatarUri)
+    avatarUriString: String,                 // from DataStore
+    onAvatarChange: (String) -> Unit,        // save to DataStore
     onNameChange: (String) -> Unit,
     onBack: () -> Unit,
     onPersonalDetails: () -> Unit = {},
@@ -67,19 +99,16 @@ fun ProfileScreen(
 
     var showNameDialog by rememberSaveable { mutableStateOf(false) }
 
-    // ✅ Надёжный выбор изображения с persistable permission
     val pickAvatarLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
-            // persist read permission (если провайдер поддерживает)
             try {
                 context.contentResolver.takePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             } catch (_: Throwable) {
-                // норм — не все провайдеры дают persistable, но строку uri сохраняем
             }
             onAvatarChange(uri.toString())
         }
@@ -87,80 +116,101 @@ fun ProfileScreen(
 
     val avatarBitmap: ImageBitmap? by rememberAvatarBitmap(avatarUriString)
 
-    Column(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFFF5F6F8))
-            .padding(horizontal = 16.dp)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        Spacer(Modifier.height(8.dp))
+        val minDim = min(maxWidth, maxHeight)
+        val uiScale = (minDim / 390.dp).coerceIn(0.82f, 1.20f)
 
-        // Top bar (Back)
-        Row(
+        val padH = 16.dp * uiScale
+        val topGap = 8.dp * uiScale
+        val sectionGap = 22.dp * uiScale
+
+        val scroll = rememberScrollState()
+
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .padding(horizontal = padH)
+                .verticalScroll(scroll)
+                .navigationBarsPadding()
+                .imePadding()
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.Outlined.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color(0xFF111111)
+            Spacer(Modifier.height(topGap))
+
+            // Top bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp * uiScale),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack, modifier = Modifier.size(44.dp * uiScale)) {
+                    Icon(
+                        imageVector = Icons.Outlined.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color(0xFF111111),
+                        modifier = Modifier.size(22.dp * uiScale)
+                    )
+                }
+                Spacer(Modifier.size(6.dp * uiScale))
+                Text(
+                    text = "Profile",
+                    fontSize = (18.sp * uiScale),
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF111111)
                 )
             }
-            Spacer(Modifier.width(6.dp))
+
+            Spacer(Modifier.height(8.dp * uiScale))
+
+            ProfileHero(
+                scale = uiScale,
+                avatarBitmap = avatarBitmap,
+                onAvatarClick = { pickAvatarLauncher.launch(arrayOf("image/*")) }
+            )
+
+            Spacer(Modifier.height((48.dp * uiScale).coerceIn(28.dp, 58.dp)))
+
             Text(
-                text = "Profile",
-                fontSize = 18.sp,
+                text = displayName,
+                fontSize = (22.sp * uiScale),
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF111111)
+                color = Color(0xFF111111),
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .clickable { showNameDialog = true }
+                    .padding(vertical = 6.dp * uiScale)
             )
+
+            Spacer(Modifier.height((28.dp * uiScale).coerceIn(16.dp, 34.dp)))
+
+            SettingsSection(
+                scale = uiScale,
+                title = "PERSONALIZE",
+                items = listOf(
+                    SettingItem("Personal Details", Icons.Outlined.Person, onPersonalDetails),
+                    SettingItem("Settings", Icons.Outlined.Settings, onSettings)
+                )
+            )
+
+            Spacer(Modifier.height(sectionGap))
+
+            SettingsSection(
+                scale = uiScale,
+                title = "NEED HELP?",
+                items = listOf(
+                    SettingItem("Tips and Tricks", Icons.Outlined.Info, onTips),
+                    SettingItem("Frequently Asked Questions", Icons.Outlined.HelpOutline, onFaq),
+                    SettingItem("Contact Us", Icons.Outlined.Email, onContact)
+                )
+            )
+
+            Spacer(Modifier.height(14.dp * uiScale))
         }
-
-        Spacer(Modifier.height(8.dp))
-
-        ProfileHero(
-            avatarBitmap = avatarBitmap,
-            onAvatarClick = {
-                // ✅ image/*
-                pickAvatarLauncher.launch(arrayOf("image/*"))
-            }
-        )
-
-        Spacer(Modifier.height(48.dp))
-
-        Text(
-            text = displayName,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF111111),
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .clickable { showNameDialog = true }
-                .padding(vertical = 6.dp)
-        )
-
-        Spacer(Modifier.height(28.dp))
-
-        SettingsSection(
-            title = "PERSONALIZE",
-            items = listOf(
-                SettingItem("Personal Details", Icons.Outlined.Person, onPersonalDetails),
-                SettingItem("Settings", Icons.Outlined.Settings, onSettings)
-            )
-        )
-
-        Spacer(Modifier.height(22.dp))
-
-        SettingsSection(
-            title = "NEED HELP?",
-            items = listOf(
-                SettingItem("Tips and Tricks", Icons.Outlined.Info, onTips),
-                SettingItem("Frequently Asked Questions", Icons.Outlined.HelpOutline, onFaq),
-                SettingItem("Contact Us", Icons.Outlined.Email, onContact)
-            )
-        )
     }
 
     if (showNameDialog) {
@@ -194,25 +244,34 @@ fun ProfileScreen(
 }
 
 // -----------------------------
-// Hero section
+// Hero section (adaptive)
 // -----------------------------
 @Composable
 private fun ProfileHero(
+    scale: Float,
     avatarBitmap: ImageBitmap?,
     onAvatarClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(28.dp)
+    val shape = RoundedCornerShape(28.dp * scale)
+
+    // держим пропорции, чтобы на разных экранах не “плющило”
+    val heroHeight = (180.dp * scale).coerceIn(150.dp, 220.dp)
+    val bannerHeight = (150.dp * scale).coerceIn(120.dp, 190.dp)
+
+    val frameSize = (92.dp * scale).coerceIn(78.dp, 110.dp)
+    val avatarSize = (84.dp * scale).coerceIn(70.dp, 102.dp)
+    val avatarOffsetY = (44.dp * scale).coerceIn(28.dp, 56.dp)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp),
+            .height(heroHeight),
         contentAlignment = Alignment.BottomCenter
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(150.dp)
+                .height(bannerHeight)
                 .clip(shape)
         ) {
             AnimatedWaveGradient(
@@ -228,8 +287,8 @@ private fun ProfileHero(
 
         Box(
             modifier = Modifier
-                .size(92.dp)
-                .offset(y = 44.dp)
+                .size(frameSize)
+                .offset(y = avatarOffsetY)
                 .clip(CircleShape)
                 .background(Color.White)
                 .clickable { onAvatarClick() },
@@ -240,11 +299,11 @@ private fun ProfileHero(
                     painter = BitmapPainter(avatarBitmap),
                     contentDescription = null,
                     modifier = Modifier
-                        .size(84.dp)
+                        .size(avatarSize)
                         .clip(CircleShape)
                 )
             } else {
-                AvatarPlaceholder(modifier = Modifier.size(84.dp))
+                AvatarPlaceholder(modifier = Modifier.size(avatarSize))
             }
         }
     }
@@ -326,31 +385,32 @@ private fun AvatarPlaceholder(modifier: Modifier = Modifier) {
 }
 
 // -----------------------------
-// Settings UI
+// Settings UI (adaptive)
 // -----------------------------
 @Composable
 private fun SettingsSection(
+    scale: Float,
     title: String,
     items: List<SettingItem>
 ) {
     Column {
         Text(
             text = title,
-            fontSize = 12.sp,
+            fontSize = (12.sp * scale),
             fontWeight = FontWeight.Medium,
             color = Color(0xFF8E9097),
-            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+            modifier = Modifier.padding(start = 8.dp * scale, bottom = 8.dp * scale)
         )
 
         Surface(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(20.dp * scale),
             color = Color.White,
-            shadowElevation = 6.dp
+            shadowElevation = 6.dp * scale
         ) {
             Column {
                 items.forEachIndexed { index, item ->
-                    SettingsRow(item)
-                    if (index != items.lastIndex) DividerLight()
+                    SettingsRow(scale = scale, item = item)
+                    if (index != items.lastIndex) DividerLight(scale = scale)
                 }
             }
         }
@@ -358,25 +418,26 @@ private fun SettingsSection(
 }
 
 @Composable
-private fun SettingsRow(item: SettingItem) {
+private fun SettingsRow(scale: Float, item: SettingItem) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { item.onClick() }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = item.icon,
             contentDescription = null,
-            tint = Color(0xFF111111)
+            tint = Color(0xFF111111),
+            modifier = Modifier.size(22.dp * scale)
         )
 
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(14.dp * scale))
 
         Text(
             text = item.title,
-            fontSize = 16.sp,
+            fontSize = (16.sp * scale),
             color = Color(0xFF111111),
             modifier = Modifier.weight(1f)
         )
@@ -384,17 +445,18 @@ private fun SettingsRow(item: SettingItem) {
         Icon(
             imageVector = Icons.Outlined.ArrowForwardIos,
             contentDescription = null,
-            tint = Color(0xFFB0B2B8)
+            tint = Color(0xFFB0B2B8),
+            modifier = Modifier.size(18.dp * scale)
         )
     }
 }
 
 @Composable
-private fun DividerLight() {
+private fun DividerLight(scale: Float) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(1.dp)
+            .height((1.dp * scale).coerceAtLeast(1.dp))
             .background(Color(0xFFE9EAEE))
     )
 }
