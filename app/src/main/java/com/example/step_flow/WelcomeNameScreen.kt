@@ -5,23 +5,28 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.*
+import kotlin.math.max
+import kotlin.math.min
 
 private const val MAX_NAME_LEN = 18
-
-// ✅ Разрешены ТОЛЬКО буквы (кириллица + латиница) и пробел
 private val NotLetterOrSpace = Regex("[^\\p{L} ]")
 
 @Composable
@@ -30,6 +35,9 @@ fun WelcomeNameScreen(
     onNameChange: (String) -> Unit,
     onContinue: () -> Unit
 ) {
+    val density = LocalDensity.current
+    var bottomBlockHeightDp by remember { mutableStateOf(0.dp) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -42,6 +50,8 @@ fun WelcomeNameScreen(
             onNameChange = onNameChange,
             modifier = Modifier
                 .align(Alignment.Center)
+                // ✅ Сдвиг вверх на половину высоты нижнего блока — больше нет перекрытий
+                .offset(y = -(bottomBlockHeightDp / 2f))
                 .fillMaxWidth(0.9f)
                 .graphicsLayer {
                     scaleX = 1.25f
@@ -52,7 +62,11 @@ fun WelcomeNameScreen(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 24.dp),
+                .navigationBarsPadding() // ✅ чтобы кнопка не уезжала под системную навигацию
+                .padding(bottom = 24.dp)
+                .onSizeChanged { size ->
+                    bottomBlockHeightDp = with(density) { size.height.toDp() }
+                },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -77,6 +91,7 @@ fun WelcomeNameScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
+                    .semantics { contentDescription = "bp_continue" }
             ) {
                 Text("Continue")
             }
@@ -100,18 +115,42 @@ private fun NameBadgeInput(
             modifier = Modifier.fillMaxSize()
         )
 
-        Box(
+        // Поле ввода внутри бейджа
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth(0.72f)
                 .height(80.dp)
                 .offset(y = 18.dp),
             contentAlignment = Alignment.Center
         ) {
+            val maxW = maxWidth
+            val maxH = maxHeight
+
+            val displayText = if (name.isBlank()) "Your name" else name
+
+            val valueFontSize = rememberAutoFontSize(
+                text = if (name.isBlank()) "W" else name,
+                maxWidth = maxW,
+                maxHeight = maxH,
+                maxFontSize = 34.sp,
+                minFontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            val placeholderFontSize = rememberAutoFontSize(
+                text = "Your name",
+                maxWidth = maxW,
+                maxHeight = maxH,
+                maxFontSize = 26.sp,
+                minFontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
             BasicTextField(
                 value = name,
                 onValueChange = { raw ->
                     val filtered = raw
-                        .replace(NotLetterOrSpace, "") // ❌ цифры и символы удаляются
+                        .replace(NotLetterOrSpace, "")
                         .replace(Regex("\\s+"), " ")
                         .trimStart()
                         .take(MAX_NAME_LEN)
@@ -120,30 +159,89 @@ private fun NameBadgeInput(
                 },
                 singleLine = true,
                 textStyle = TextStyle(
-                    fontSize = 34.sp,
+                    fontSize = valueFontSize,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.Black,
                     textAlign = TextAlign.Center
                 ),
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text,              // ⌨️ буквенная
+                    keyboardType = KeyboardType.Text,
                     capitalization = KeyboardCapitalization.Words,
                     autoCorrect = false
                 ),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "bp_name_input" },
                 decorationBox = { inner ->
                     if (name.isBlank()) {
                         Text(
-                            text = "Your name",
+                            text = displayText,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center,
-                            fontSize = 26.sp,
-                            color = Color.Black.copy(alpha = 0.25f)
+                            fontSize = placeholderFontSize,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Black.copy(alpha = 0.25f),
+                            maxLines = 1
                         )
                     }
                     inner()
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun rememberAutoFontSize(
+    text: String,
+    maxWidth: Dp,
+    maxHeight: Dp,
+    maxFontSize: TextUnit,
+    minFontSize: TextUnit,
+    fontWeight: FontWeight
+): TextUnit {
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+
+    val d = density.density
+    val fs = density.fontScale
+
+    return remember(text, maxWidth, maxHeight, maxFontSize, minFontSize, fontWeight, d, fs) {
+        val safeText = if (text.isBlank()) " " else text
+
+        val maxWpx = with(density) { maxWidth.roundToPx() }
+        val maxHpx = with(density) { maxHeight.roundToPx() }
+
+        var lowPx = with(density) { minFontSize.toPx() }
+        var highPx = with(density) { maxFontSize.toPx() }
+        var bestPx = lowPx
+
+        repeat(18) {
+            val midPx = (lowPx + highPx) / 2f
+            val midSp = with(density) { midPx.toSp() }
+
+            val layout = measurer.measure(
+                text = AnnotatedString(safeText),
+                style = TextStyle(fontSize = midSp, fontWeight = fontWeight),
+                constraints = Constraints(maxWidth = maxWpx, maxHeight = maxHpx),
+                maxLines = 1
+            )
+
+            val fits = layout.size.width <= maxWpx && layout.size.height <= maxHpx
+
+            if (fits) {
+                bestPx = midPx
+                lowPx = midPx + 0.5f
+            } else {
+                highPx = midPx - 0.5f
+            }
+        }
+
+        val clamped = min(
+            max(bestPx, with(density) { minFontSize.toPx() }),
+            with(density) { maxFontSize.toPx() }
+        )
+
+        with(density) { clamped.toSp() }
     }
 }

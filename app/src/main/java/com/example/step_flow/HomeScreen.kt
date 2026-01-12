@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
@@ -56,6 +55,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -96,7 +97,6 @@ fun HomeScreenNow(
             .background(pageBg)
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        // База для адаптива: считаем от "короткой" стороны
         val minDim = minOf(maxWidth, maxHeight)
         val uiScale = (minDim / 390.dp).coerceIn(0.82f, 1.20f)
 
@@ -114,13 +114,11 @@ fun HomeScreenNow(
         val scroll = rememberScrollState()
 
         Box(Modifier.fillMaxSize()) {
-            // Контент скроллится, чтобы на маленьких экранах ничего не обрезалось
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scroll)
                     .padding(horizontal = padH)
-                    // снизу место под BottomNav
                     .padding(bottom = navH + gapM)
             ) {
                 Spacer(Modifier.height(gapS))
@@ -142,12 +140,16 @@ fun HomeScreenNow(
                     Spacer(Modifier.weight(1f))
 
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp * uiScale)) {
+
+                        // ✅ Baseline: top profile button
                         IconButton(
                             onClick = {
                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onTopProfile()
                             },
-                            modifier = Modifier.size(40.dp * uiScale)
+                            modifier = Modifier
+                                .size(40.dp * uiScale)
+                                .semantics { contentDescription = "bp_top_profile" }
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Person,
@@ -157,12 +159,15 @@ fun HomeScreenNow(
                             )
                         }
 
+                        // ✅ Baseline: top settings button
                         IconButton(
                             onClick = {
                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onTopSettings()
                             },
-                            modifier = Modifier.size(40.dp * uiScale)
+                            modifier = Modifier
+                                .size(40.dp * uiScale)
+                                .semantics { contentDescription = "bp_top_settings" }
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Settings,
@@ -206,11 +211,12 @@ fun HomeScreenNow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(14.dp * uiScale)
                 ) {
-                    // Плитки сами подстраиваются по ширине -> высота через aspectRatio
+                    // ✅ Baseline: Calendar tile
                     QuickTile(
                         modifier = Modifier
                             .weight(1f)
-                            .aspectRatio(1.05f),
+                            .aspectRatio(1.05f)
+                            .semantics { contentDescription = "bp_tile_calendar" },
                         scale = uiScale,
                         icon = Icons.Outlined.CalendarToday,
                         label = "Calendar",
@@ -250,7 +256,6 @@ fun HomeScreenNow(
                 Spacer(Modifier.height(gapM))
             }
 
-            // BottomNav всегда снизу (не ломается на маленьких экранах)
             BottomNav(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -326,12 +331,14 @@ private fun RunRing(
             )
         }
 
+        // ✅ Baseline: RUN button target
         Box(
             modifier = Modifier
                 .size(coreSize)
                 .shadow(10.dp * scale, CircleShape, clip = false)
                 .clip(CircleShape)
                 .background(Color(0xFFF3F5F8))
+                .semantics { contentDescription = "bp_run" }
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
@@ -434,7 +441,9 @@ private fun BottomNav(
                 icon = Icons.Outlined.CalendarToday,
                 selected = activeTab == HomeTab.Calendar,
                 inactive = inactiveColor,
-                active = activeColor
+                active = activeColor,
+                // ✅ optional: stable hooks (не обязательно, но полезно)
+                baselineId = "bp_tab_calendar"
             ) { onSelect(HomeTab.Calendar) }
 
             BottomItem(
@@ -444,7 +453,8 @@ private fun BottomNav(
                 icon = Icons.Outlined.Home,
                 selected = activeTab == HomeTab.Home,
                 inactive = inactiveColor,
-                active = activeColor
+                active = activeColor,
+                baselineId = "bp_tab_home"
             ) { onSelect(HomeTab.Home) }
 
             BottomItem(
@@ -454,7 +464,9 @@ private fun BottomNav(
                 icon = Icons.Outlined.Person,
                 selected = activeTab == HomeTab.Profile,
                 inactive = inactiveColor,
-                active = activeColor
+                active = activeColor,
+                // ✅ Baseline: profile tab target
+                baselineId = "bp_tab_profile"
             ) { onSelect(HomeTab.Profile) }
         }
     }
@@ -469,6 +481,7 @@ private fun BottomItem(
     selected: Boolean,
     inactive: Color,
     active: Color,
+    baselineId: String,
     onClick: () -> Unit
 ) {
     val textColor = if (selected) active else inactive
@@ -477,6 +490,7 @@ private fun BottomItem(
 
     Column(
         modifier = modifier
+            .semantics { contentDescription = baselineId }
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp * scale),
         horizontalAlignment = Alignment.CenterHorizontally,

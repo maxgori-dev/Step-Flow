@@ -71,6 +71,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
@@ -192,8 +194,18 @@ fun ProfileScreen(
                 scale = uiScale,
                 title = "PERSONALIZE",
                 items = listOf(
-                    SettingItem("Personal Details", Icons.Outlined.Person, onPersonalDetails),
-                    SettingItem("Settings", Icons.Outlined.Settings, onSettings)
+                    SettingItem(
+                        title = "Personal Details",
+                        icon = Icons.Outlined.Person,
+                        baselineId = "bp_personal_details",
+                        onClick = onPersonalDetails
+                    ),
+                    SettingItem(
+                        title = "Settings",
+                        icon = Icons.Outlined.Settings,
+                        baselineId = "bp_settings",
+                        onClick = onSettings
+                    )
                 )
             )
 
@@ -203,9 +215,24 @@ fun ProfileScreen(
                 scale = uiScale,
                 title = "NEED HELP?",
                 items = listOf(
-                    SettingItem("Tips and Tricks", Icons.Outlined.Info, onTips),
-                    SettingItem("Frequently Asked Questions", Icons.Outlined.HelpOutline, onFaq),
-                    SettingItem("Contact Us", Icons.Outlined.Email, onContact)
+                    SettingItem(
+                        title = "Tips and Tricks",
+                        icon = Icons.Outlined.Info,
+                        baselineId = "bp_tips",
+                        onClick = onTips
+                    ),
+                    SettingItem(
+                        title = "Frequently Asked Questions",
+                        icon = Icons.Outlined.HelpOutline,
+                        baselineId = "bp_faq",
+                        onClick = onFaq
+                    ),
+                    SettingItem(
+                        title = "Contact Us",
+                        icon = Icons.Outlined.Email,
+                        baselineId = "bp_contact",
+                        onClick = onContact
+                    )
                 )
             )
 
@@ -254,7 +281,6 @@ private fun ProfileHero(
 ) {
     val shape = RoundedCornerShape(28.dp * scale)
 
-    // держим пропорции, чтобы на разных экранах не “плющило”
     val heroHeight = (180.dp * scale).coerceIn(150.dp, 220.dp)
     val bannerHeight = (150.dp * scale).coerceIn(120.dp, 190.dp)
 
@@ -422,6 +448,7 @@ private fun SettingsRow(scale: Float, item: SettingItem) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .semantics { contentDescription = item.baselineId }
             .clickable { item.onClick() }
             .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale),
         verticalAlignment = Alignment.CenterVertically
@@ -464,6 +491,7 @@ private fun DividerLight(scale: Float) {
 private data class SettingItem(
     val title: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val baselineId: String,
     val onClick: () -> Unit
 )
 

@@ -21,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,34 +45,24 @@ fun TrackingScreen(
 
     // --- ИСПРАВЛЕННАЯ И УЛУЧШЕННАЯ ЗАЩИТА ---
 
-    // 1. Убираем `remember`. Теперь проверка будет выполняться при каждой рекомпозиции,
-    // что корректно отловит отзыв разрешений после сворачивания приложения.
     val hasLocationPermission = ContextCompat.checkSelfPermission(
         context,
         Manifest.permission.ACCESS_FINE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED
 
-    // 2. Добавляем проверку на разрешение для шагомера (если требуется).
     val hasActivityRecognitionPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.ACTIVITY_RECOGNITION
         ) == PackageManager.PERMISSION_GRANTED
     } else {
-        // На старых версиях Android это разрешение не нужно.
         true
     }
 
-    // 3. Выходим, если ЛЮБОЕ из необходимых разрешений было отозвано.
     if (!hasLocationPermission || !hasActivityRecognitionPermission) {
-        LaunchedEffect(Unit) {
-            onBack()
-        }
-        return // Ничего не рисуем и выходим.
+        LaunchedEffect(Unit) { onBack() }
+        return
     }
-
-    // --- КОНЕЦ ИСПРАВЛЕННОЙ ЗАЩИТЫ ---
-
 
     // --- СОСТОЯНИЕ ДАННЫХ ---
     var secondsElapsed by remember { mutableLongStateOf(0L) }
@@ -78,7 +70,7 @@ fun TrackingScreen(
     var currentSpeedMps by remember { mutableFloatStateOf(0f) } // м/с
     var steps by remember { mutableIntStateOf(0) }
 
-    // --- МАТЕМАТИКА (остается без изменений) ---
+    // --- МАТЕМАТИКА ---
     val distanceKm = totalDistanceMeters / 1000.0
     val speedKmh = currentSpeedMps * 3.6
     val avgPaceText = remember(distanceKm, secondsElapsed) {
@@ -99,7 +91,7 @@ fun TrackingScreen(
         String.format(Locale.US, "%02d:%02d:%02d", h, m, s)
     }
 
-    // --- ЗАПУСК ТАЙМЕРА (остается без изменений) ---
+    // --- ТАЙМЕР ---
     LaunchedEffect(Unit) {
         while (isActive) {
             delay(1000L)
@@ -107,7 +99,7 @@ fun TrackingScreen(
         }
     }
 
-    // --- ШАГОМЕР (остается без изменений) ---
+    // --- ШАГОМЕР ---
     val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
     val stepSensor = remember { sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) }
     DisposableEffect(Unit) {
@@ -128,7 +120,7 @@ fun TrackingScreen(
         onDispose { sensorManager.unregisterListener(listener) }
     }
 
-    // --- ГЕОЛОКАЦИЯ (без запроса разрешений) ---
+    // --- ГЕОЛОКАЦИЯ ---
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var pathPoints by remember { mutableStateOf(listOf<LatLng>()) }
     var lastLocationObj by remember { mutableStateOf<Location?>(null) }
@@ -136,38 +128,40 @@ fun TrackingScreen(
         position = CameraPosition.fromLatLngZoom(LatLng(0.0, 0.0), 16f)
     }
 
-    // Этот DisposableEffect теперь запускается сразу, т.к. разрешение уже есть
     DisposableEffect(Unit) {
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000)
             .setMinUpdateIntervalMillis(1000)
             .build()
+
         val callback = object : LocationCallback() {
             override fun onLocationResult(res: LocationResult) {
                 res.lastLocation?.let { newLoc ->
                     val newPoint = LatLng(newLoc.latitude, newLoc.longitude)
-                    if (lastLocationObj != null) {
-                        val dist = lastLocationObj!!.distanceTo(newLoc)
+
+                    lastLocationObj?.let { last ->
+                        val dist = last.distanceTo(newLoc)
                         totalDistanceMeters += dist
                     }
                     lastLocationObj = newLoc
-                    if (newLoc.hasSpeed()) {
-                        currentSpeedMps = newLoc.speed
-                    }
+
+                    if (newLoc.hasSpeed()) currentSpeedMps = newLoc.speed
+
                     pathPoints = pathPoints + newPoint
                     cameraPositionState.move(CameraUpdateFactory.newLatLng(newPoint))
                 }
             }
         }
+
         fusedLocationClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
         onDispose { fusedLocationClient.removeLocationUpdates(callback) }
     }
 
-    // --- ИНТЕРФЕЙС (остается почти без изменений) ---
+    // --- UI ---
     Box(modifier = Modifier.fillMaxSize()) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
-            properties = MapProperties(isMyLocationEnabled = true), // Разрешение есть, всегда true
+            properties = MapProperties(isMyLocationEnabled = true),
             uiSettings = MapUiSettings(myLocationButtonEnabled = true, zoomControlsEnabled = false)
         ) {
             if (pathPoints.isNotEmpty()) {
@@ -175,7 +169,6 @@ fun TrackingScreen(
             }
         }
 
-        // КАРТОЧКА С ДАННЫМИ (без изменений)
         Card(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -189,24 +182,43 @@ fun TrackingScreen(
                 modifier = Modifier.padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(formattedTime, fontSize = 56.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, letterSpacing = 2.sp)
+                Text(
+                    formattedTime,
+                    fontSize = 56.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    letterSpacing = 2.sp
+                )
+
                 Spacer(modifier = Modifier.height(20.dp))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    StatItem(value = String.format("%.2f km", distanceKm), label = "Distance")
-                    StatItem(value = String.format("%.1f km/h", speedKmh), label = "Speed")
+                    StatItem(value = String.format(Locale.US, "%.2f km", distanceKm), label = "Distance")
+                    StatItem(value = String.format(Locale.US, "%.1f km/h", speedKmh), label = "Speed")
                     StatItem(value = avgPaceText, label = "Avg Pace")
                 }
+
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(text = "Steps: $steps", fontSize = 16.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
+
+                Text(
+                    text = "Steps: $steps",
+                    fontSize = 16.sp,
+                    color = Color.Gray,
+                    fontWeight = FontWeight.Medium
+                )
+
                 Spacer(modifier = Modifier.height(20.dp))
+
+                // ✅ BaselineProfile: finish button
                 Button(
                     onClick = onBack,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp),
+                        .height(54.dp)
+                        .semantics { contentDescription = "bp_tracking_finish" },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     shape = RoundedCornerShape(16.dp)
                 ) {
@@ -217,11 +229,15 @@ fun TrackingScreen(
     }
 }
 
-// Компонент StatItem остается без изменений
 @Composable
 fun StatItem(value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(
+            text = value,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
         Text(text = label, fontSize = 12.sp, color = Color.Gray)
     }
 }

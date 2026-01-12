@@ -29,6 +29,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
@@ -57,21 +59,22 @@ fun PermissionScreen(
     ) { permissions ->
         val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
         if (fineLocationGranted) {
-            // Шаг 1 пройден! Теперь нужно запросить фоновое разрешение (если нужно).
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 screenState = PermissionScreenState.REQUESTING_BACKGROUND
             } else {
-                // На старых версиях Android (до 10) ACCESS_FINE_LOCATION достаточно,
-                // фоновое разрешение не требуется.
                 onPermissionsGranted()
             }
         } else {
-            // Пользователь отклонил основные разрешения. Проверяем, навсегда ли.
-            if (activity != null && !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_FINE_LOCATION)) {
+            if (
+                activity != null &&
+                !ActivityCompat.shouldShowRequestPermissionRationale(
+                    activity,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                )
+            ) {
                 screenState = PermissionScreenState.DENIED_PERMANENTLY
             } else {
-                // Если отклонил не навсегда, можно будет попросить снова,
-                // остаемся на экране REQUESTING_INITIAL
+                // остаёмся на REQUESTING_INITIAL
             }
         }
     }
@@ -80,15 +83,11 @@ fun PermissionScreen(
     val backgroundPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) {
-        // Неважно, дал пользователь фоновый доступ или нет, основные разрешения у нас есть.
-        // Переходим к тренировке. Приложение будет работать, просто не сможет
-        // отслеживать в свернутом режиме, если пользователь отказал.
         onPermissionsGranted()
     }
 
-    // --- UI Экрана ---
-
     when (screenState) {
+
         // --- Экран 1: Запрос основных разрешений ---
         PermissionScreenState.REQUESTING_INITIAL -> {
             PermissionUI(
@@ -98,7 +97,8 @@ fun PermissionScreen(
                 onButtonClick = { initialPermissionsLauncher.launch(getInitialPermissions()) },
                 onBackClick = onPermissionDenied
             )
-            // Запускаем автоматический запрос при первом входе
+
+            // Авто-запрос при первом входе
             LaunchedEffect(Unit) {
                 initialPermissionsLauncher.launch(getInitialPermissions())
             }
@@ -116,14 +116,12 @@ fun PermissionScreen(
                     }
                 },
                 onBackClick = {
-                    // Пользователь решил не давать фоновый доступ. Это его право.
-                    // Переходим к тренировке с теми разрешениями, что уже есть.
                     onPermissionsGranted()
                 }
             )
         }
 
-        // --- Экран 3: Пользователь навсегда отклонил основные разрешения ---
+        // --- Экран 3: Пользователь навсегда отклонил ---
         PermissionScreenState.DENIED_PERMANENTLY -> {
             PermissionUI(
                 title = "Location Access Required",
@@ -141,7 +139,6 @@ fun PermissionScreen(
     }
 }
 
-// Вспомогательная функция, чтобы не дублировать код
 private fun getInitialPermissions(): Array<String> {
     val perms = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -150,7 +147,6 @@ private fun getInitialPermissions(): Array<String> {
     return perms.toTypedArray()
 }
 
-// Переиспользуемый компонент для UI разных состояний экрана
 @Composable
 private fun PermissionUI(
     title: String,
@@ -166,15 +162,37 @@ private fun PermissionUI(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = title, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center
+        )
+
         Spacer(modifier = Modifier.height(16.dp))
-        Text(text = infoText, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+
+        Text(
+            text = infoText,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+
         Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onButtonClick) {
+
+        // ✅ BaselineProfile: primary action button
+        Button(
+            onClick = onButtonClick,
+            modifier = Modifier.semantics { contentDescription = "bp_permission_allow" }
+        ) {
             Text(buttonText)
         }
+
         Spacer(modifier = Modifier.height(8.dp))
-        TextButton(onClick = onBackClick) {
+
+        // ✅ BaselineProfile: back/deny
+        TextButton(
+            onClick = onBackClick,
+            modifier = Modifier.semantics { contentDescription = "bp_permission_deny" }
+        ) {
             Text("Back")
         }
     }
