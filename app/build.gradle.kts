@@ -1,13 +1,19 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+
+    // ✅ Hilt
+    alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.hilt)
+
+    // Baseline Profile
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 android {
     namespace = "com.example.step_flow"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.step_flow"
@@ -27,13 +33,28 @@ android {
                 "proguard-rules.pro"
             )
         }
+
+        create("nonMinifiedRelease") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+
+    kotlinOptions { jvmTarget = "11" }
+
+    buildFeatures { compose = true }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
     }
 }
 
@@ -41,9 +62,39 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
-    implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+
+    // Compose BOM из libs.versions.toml
+    implementation(platform(libs.compose.bom))
+    implementation(libs.androidx.activity.compose)
+
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.foundation)
+    implementation(libs.compose.material.icons.extended)
+
+    debugImplementation(libs.compose.ui.tooling)
+
+    // ✅ Hilt
+    implementation(libs.hilt.android)
+    kapt(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
+
+    // Baseline Profile
+    implementation(libs.androidx.benchmark.macro)
+    baselineProfile(project(":baselineprofile"))
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+
+}
+
+// ✅ ВАЖНО: kapt-блок должен быть СНАРУЖИ dependencies
+kapt {
+    correctErrorTypes = true
 }
