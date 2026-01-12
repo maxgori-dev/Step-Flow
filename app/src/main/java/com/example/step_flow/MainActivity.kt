@@ -1,5 +1,7 @@
 package com.example.step_flow
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -33,6 +35,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import java.time.LocalDate
@@ -42,6 +45,23 @@ import com.example.step_flow.data.RunModel
 class MainActivity : ComponentActivity() {
 
     private val vm: MainViewModel by viewModels()
+
+    private fun hasRequiredPermissions(): Boolean {
+        val hasLocation = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        // Для Android 10+ нужно еще разрешение на физическую активность
+        val hasActivity = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACTIVITY_RECOGNITION
+            ) == PackageManager.PERMISSION_GRANTED
+        } else true
+
+        return hasLocation && hasActivity
+    }
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -189,7 +209,15 @@ class MainActivity : ComponentActivity() {
                             // 2 — Home
                             2 -> {
                                 HomeScreenNow(
-                                    onRunClick = { navigate(10) },
+                                    onRunClick = {
+                                        if (hasRequiredPermissions()) {
+                                        // Если права УЖЕ есть -> сразу запускаем тренировку (шаг 11)
+                                        // Используем navigateRoot, чтобы нельзя было вернуться назад к меню кнопкой "Назад"
+                                        navigateRoot(11)
+                                    } else {
+                                        // Если прав НЕТ -> идем на экран запроса (шаг 10)
+                                        navigate(10)
+                                    } },
                                     onTileCalendar = { navigate(3) },
                                     onTileHistory = { navigate(12) },
                                     onTileAchievements = { /* TODO */ },

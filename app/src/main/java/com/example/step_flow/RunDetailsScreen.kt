@@ -6,14 +6,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -31,9 +30,23 @@ fun RunDetailsScreen(
     onBack: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+
+    // 1. Форматирование даты
     val dateStr = remember(run.timestamp) {
         val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault())
         sdf.format(Date(run.timestamp))
+    }
+
+    // 2. Расчет ТЕМПА (мин/км)
+    val paceText = remember(run.avgSpeedKmh) {
+        if (run.avgSpeedKmh > 0.1) {
+            val paceMinTotal = 60.0 / run.avgSpeedKmh
+            val pMin = paceMinTotal.toInt()
+            val pSec = ((paceMinTotal - pMin) * 60).toInt()
+            String.format(Locale.US, "%d:%02d", pMin, pSec)
+        } else {
+            "-:--"
+        }
     }
 
     Scaffold(
@@ -42,7 +55,7 @@ fun RunDetailsScreen(
                 title = { Text("Run Details", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
@@ -56,12 +69,12 @@ fun RunDetailsScreen(
                 .padding(padding)
                 .verticalScroll(scrollState)
         ) {
-            // 1. Блок с картой
+            // --- БЛОК С КАРТОЙ ---
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
-                    .height(250.dp), // Высота карты
+                    .height(250.dp),
                 shape = RoundedCornerShape(20.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
@@ -79,7 +92,7 @@ fun RunDetailsScreen(
                 }
             }
 
-            // 2. Дата
+            // --- ДАТА ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -93,8 +106,9 @@ fun RunDetailsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 3. Статистика (Сетка)
+            // --- СТАТИСТИКА (Сетка карточек) ---
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                // Ряд 1: Дистанция и Калории
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     DetailCard(
                         modifier = Modifier.weight(1f),
@@ -109,9 +123,11 @@ fun RunDetailsScreen(
                         label = "Calories"
                     )
                 }
+
                 Spacer(modifier = Modifier.height(12.dp))
+
+                // Ряд 2: Время и Скорость
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Время (форматируем секунды в MM:SS или HH:MM:SS)
                     val h = run.durationSeconds / 3600
                     val m = (run.durationSeconds % 3600) / 60
                     val s = run.durationSeconds % 60
@@ -130,7 +146,10 @@ fun RunDetailsScreen(
                         label = "Avg Speed"
                     )
                 }
+
                 Spacer(modifier = Modifier.height(12.dp))
+
+                // Ряд 3: Шаги и ТЕМП (Добавлено)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     DetailCard(
                         modifier = Modifier.weight(1f),
@@ -138,8 +157,13 @@ fun RunDetailsScreen(
                         unit = "steps",
                         label = "Total Steps"
                     )
-                    // Пустая ячейка для выравнивания (или можно добавить Pace)
-                    Spacer(modifier = Modifier.weight(1f))
+                    // ✅ Добавлена карточка Темпа
+                    DetailCard(
+                        modifier = Modifier.weight(1f),
+                        value = paceText,
+                        unit = "min/km",
+                        label = "Avg Pace"
+                    )
                 }
             }
 

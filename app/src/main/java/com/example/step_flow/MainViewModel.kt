@@ -1,6 +1,7 @@
 package com.example.step_flow
 
 import androidx.lifecycle.ViewModel
+import android.content.Context
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.example.step_flow.data.RunModel
@@ -16,6 +17,7 @@ import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import android.net.Uri
+import java.util.UUID
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
@@ -56,8 +58,19 @@ private data class PrefsSnapshot(
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val prefs: UserPrefsRepository
+    private val prefs: UserPrefsRepository,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    private val currentUserId: String by lazy {
+        val sharedPrefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        var id = sharedPrefs.getString("user_id", null)
+        if (id == null) {
+            id = UUID.randomUUID().toString() // Генерируем новый ID
+            sharedPrefs.edit().putString("user_id", id).apply()
+        }
+        id!!
+    }
 
     private val loadedFlag = MutableStateFlow(false)
 
@@ -123,6 +136,7 @@ class MainViewModel @Inject constructor(
         // Подписка на коллекцию "runs", сортировка по дате (новые сверху)
         val listener = FirebaseFirestore.getInstance()
             .collection("runs")
+            .whereEqualTo("userId", currentUserId)
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -200,6 +214,7 @@ class MainViewModel @Inject constructor(
 
                 // 2. Создаем модель забега
                 val runData = RunModel(
+                    userId = currentUserId,
                     timestamp = System.currentTimeMillis(),
                     distanceMeters = distanceMeters,
                     durationSeconds = durationSeconds,
