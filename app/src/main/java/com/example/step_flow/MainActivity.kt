@@ -123,7 +123,7 @@ class MainActivity : ComponentActivity() {
                             2 -> {
                                 HomeScreenNow(
                                     onRunClick = {
-                                        // TODO: RUN logic
+                                        navigate(10)
                                     },
                                     onTileCalendar = { navigate(3) },
                                     onTileHistory = {
@@ -230,6 +230,15 @@ class MainActivity : ComponentActivity() {
                             9 -> {
                                 TipsAndTricksScreen(
                                     onBack = { goBack() }
+                                )
+                            }
+
+                            // 10 — Run Tracking
+                            10 -> {
+                                TrackingScreen(
+                                    onBack = {
+                                        goBack()
+                                    }
                                 )
                             }
                         }
