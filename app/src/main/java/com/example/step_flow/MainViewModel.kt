@@ -3,6 +3,7 @@ package com.example.step_flow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.example.step_flow.data.RunModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -10,6 +11,21 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.tasks.await
+import java.io.File
+import android.net.Uri
+import com.google.firebase.firestore.Query
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
+
+sealed class UploadState {
+    object Idle : UploadState()
+    object Loading : UploadState()
+    object Success : UploadState()
+    data class Error(val message: String) : UploadState()
+}
 
 data class MainUiState(
     val loaded: Boolean,
@@ -102,6 +118,31 @@ class MainViewModel @Inject constructor(
             )
         )
 
+    // ✅ НОВОЕ: Поток списка забегов из Firebase
+    val runsFlow: StateFlow<List<RunModel>> = callbackFlow {
+        // Подписка на коллекцию "runs", сортировка по дате (новые сверху)
+        val listener = FirebaseFirestore.getInstance()
+            .collection("runs")
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error) // Закрываем поток при ошибке
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    // Преобразуем документы в объекты RunModel
+                    val runs = snapshot.toObjects(RunModel::class.java)
+                    trySend(runs) // Отправляем список в поток
+                }
+            }
+        // Отписываемся, когда ViewModel очищается
+        awaitClose { listener.remove() }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     init {
         viewModelScope.launch {
             prefs.awaitFirstLoad()
@@ -123,5 +164,63 @@ class MainViewModel @Inject constructor(
 
     fun resetOnboarding() {
         viewModelScope.launch { prefs.resetOnboarding() }
+    }
+    private val _uploadState = MutableStateFlow<UploadState>(UploadState.Idle)
+    val uploadState: StateFlow<UploadState> = _uploadState
+
+    fun resetUploadState() {
+        _uploadState.value = UploadState.Idle
+    }
+
+    // ✅ ГЛАВНАЯ ФУНКЦИЯ СОХРАНЕНИЯ
+    fun saveRunToFirebase(
+        distanceMeters: Float,
+        durationSeconds: Long,
+        calories: Int,
+        avgSpeedKmh: Float,
+        steps: Int,
+        localScreenshotPath: String?
+    ) {
+        viewModelScope.launch {
+            _uploadState.value = UploadState.Loading
+            try {
+                var imageUrl = ""
+
+                // 1. Если есть скриншот, грузим его в Firebase Storage
+                if (localScreenshotPath != null) {
+                    val file = Uri.fromFile(File(localScreenshotPath))
+                    val storageRef = FirebaseStorage.getInstance().reference
+                        .child("runs_maps/${System.currentTimeMillis()}_${file.lastPathSegment}")
+
+                    // Загрузка
+                    storageRef.putFile(file).await()
+                    // Получение ссылки
+                    imageUrl = storageRef.downloadUrl.await().toString()
+                }
+
+                // 2. Создаем модель забега
+                val runData = RunModel(
+                    timestamp = System.currentTimeMillis(),
+                    distanceMeters = distanceMeters,
+                    durationSeconds = durationSeconds,
+                    calories = calories,
+                    avgSpeedKmh = avgSpeedKmh,
+                    steps = steps,
+                    mapImageUrl = imageUrl
+                )
+
+                // 3. Сохраняем в Firestore
+                FirebaseFirestore.getInstance()
+                    .collection("runs")
+                    .add(runData)
+                    .await()
+
+                _uploadState.value = UploadState.Success
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _uploadState.value = UploadState.Error(e.message ?: "Unknown error")
+            }
+        }
     }
 }

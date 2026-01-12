@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -15,8 +16,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,58 +26,96 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.*
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import java.io.File
+import java.io.FileOutputStream
 import java.util.Locale
+import kotlin.coroutines.resume
 
-@SuppressLint("MissingPermission") // Мы уверены, что разрешение есть, т.к. сюда попадают только после его получения
+// ✅ 1. Класс для возврата результата (данные + путь к скриншоту)
+data class RunResult(
+    val distanceMeters: Float,
+    val durationSeconds: Long,
+    val calories: Int,
+    val avgSpeedKmh: Float,
+    val steps: Int,
+    val screenshotPath: String?
+)
+
+@SuppressLint("MissingPermission")
 @Composable
 fun TrackingScreen(
-    onBack: () -> Unit
+    // ✅ 2. Новые параметры для расчетов и сохранения
+    weightKg: Double,
+    heightCm: Double,
+    ageYears: Int,
+    isUploading: Boolean, // Показываем спиннер, если идет отправка в Firebase
+    onFinish: (RunResult) -> Unit, // Коллбэк успеха
+    onBack: () -> Unit // Коллбэк отмены/выхода
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
-    // --- ИСПРАВЛЕННАЯ И УЛУЧШЕННАЯ ЗАЩИТА ---
-
-    // 1. Убираем `remember`. Теперь проверка будет выполняться при каждой рекомпозиции,
-    // что корректно отловит отзыв разрешений после сворачивания приложения.
+    // --- ЗАЩИТА РАЗРЕШЕНИЙ ---
     val hasLocationPermission = ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.ACCESS_FINE_LOCATION
+        context, Manifest.permission.ACCESS_FINE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED
 
-    // 2. Добавляем проверку на разрешение для шагомера (если требуется).
     val hasActivityRecognitionPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACTIVITY_RECOGNITION
+            context, Manifest.permission.ACTIVITY_RECOGNITION
         ) == PackageManager.PERMISSION_GRANTED
-    } else {
-        // На старых версиях Android это разрешение не нужно.
-        true
-    }
+    } else true
 
-    // 3. Выходим, если ЛЮБОЕ из необходимых разрешений было отозвано.
     if (!hasLocationPermission || !hasActivityRecognitionPermission) {
-        LaunchedEffect(Unit) {
-            onBack()
-        }
-        return // Ничего не рисуем и выходим.
+        LaunchedEffect(Unit) { onBack() }
+        return
     }
 
-    // --- КОНЕЦ ИСПРАВЛЕННОЙ ЗАЩИТЫ ---
-
-
-    // --- СОСТОЯНИЕ ДАННЫХ ---
+    // --- СОСТОЯНИЕ ---
     var secondsElapsed by remember { mutableLongStateOf(0L) }
     var totalDistanceMeters by remember { mutableFloatStateOf(0f) }
-    var currentSpeedMps by remember { mutableFloatStateOf(0f) } // м/с
+    var currentSpeedMps by remember { mutableFloatStateOf(0f) }
     var steps by remember { mutableIntStateOf(0) }
 
-    // --- МАТЕМАТИКА (остается без изменений) ---
+    // ✅ 3. Состояния для скриншота
+    var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
+    var isSnapshotting by remember { mutableStateOf(false) }
+
+    // ✅ 4. Продвинутый расчет калорий
+    val caloriesBurned = remember(totalDistanceMeters, secondsElapsed) {
+        if (secondsElapsed == 0L) return@remember 0
+
+        val durationMin = secondsElapsed / 60.0
+        val distanceKm = totalDistanceMeters / 1000.0
+        // Средняя скорость (км/ч)
+        val speedKmh = if (durationMin > 0) distanceKm / (durationMin / 60.0) else 0.0
+
+        // BMR (Миффлин-Сан Жеор для мужчин, упрощенная)
+        // 10*вес + 6.25*рост - 5*возраст + 5
+        val bmrDay = (10 * weightKg) + (6.25 * heightCm) - (5 * ageYears) + 5
+
+        // MET (Интенсивность)
+        val met = when {
+            speedKmh < 0.5 -> 1.0 // Стоим
+            speedKmh < 6.0 -> 4.0 // Ходьба
+            speedKmh < 9.0 -> 8.0 // Легкий бег
+            else -> 11.5          // Бег
+        }
+
+        // Формула: (MET * 3.5 * вес / 200) * время_мин
+        val burned = (met * 3.5 * weightKg / 200.0) * durationMin
+        burned.toInt()
+    }
+
+    // --- Метрики для UI ---
     val distanceKm = totalDistanceMeters / 1000.0
     val speedKmh = currentSpeedMps * 3.6
     val avgPaceText = remember(distanceKm, secondsElapsed) {
@@ -88,9 +125,7 @@ fun TrackingScreen(
             val pMin = paceMinPerKm.toInt()
             val pSec = ((paceMinPerKm - pMin) * 60).toInt()
             String.format(Locale.US, "%d:%02d /km", pMin, pSec)
-        } else {
-            "-:-- /km"
-        }
+        } else { "-:-- /km" }
     }
     val formattedTime = remember(secondsElapsed) {
         val h = secondsElapsed / 3600
@@ -99,7 +134,7 @@ fun TrackingScreen(
         String.format(Locale.US, "%02d:%02d:%02d", h, m, s)
     }
 
-    // --- ЗАПУСК ТАЙМЕРА (остается без изменений) ---
+    // --- ТАЙМЕР ---
     LaunchedEffect(Unit) {
         while (isActive) {
             delay(1000L)
@@ -107,7 +142,7 @@ fun TrackingScreen(
         }
     }
 
-    // --- ШАГОМЕР (остается без изменений) ---
+    // --- ШАГОМЕР ---
     val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
     val stepSensor = remember { sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) }
     DisposableEffect(Unit) {
@@ -124,11 +159,11 @@ fun TrackingScreen(
             }
             override fun onAccuracyChanged(s: Sensor?, a: Int) {}
         }
-        if (stepSensor != null) sensorManager.registerListener(listener, stepSensor, SensorManager.SENSOR_DELAY_UI)
+        stepSensor?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
         onDispose { sensorManager.unregisterListener(listener) }
     }
 
-    // --- ГЕОЛОКАЦИЯ (без запроса разрешений) ---
+    // --- ГЕОЛОКАЦИЯ ---
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var pathPoints by remember { mutableStateOf(listOf<LatLng>()) }
     var lastLocationObj by remember { mutableStateOf<Location?>(null) }
@@ -136,23 +171,18 @@ fun TrackingScreen(
         position = CameraPosition.fromLatLngZoom(LatLng(0.0, 0.0), 16f)
     }
 
-    // Этот DisposableEffect теперь запускается сразу, т.к. разрешение уже есть
     DisposableEffect(Unit) {
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000)
-            .setMinUpdateIntervalMillis(1000)
-            .build()
+            .setMinUpdateIntervalMillis(1000).build()
         val callback = object : LocationCallback() {
             override fun onLocationResult(res: LocationResult) {
                 res.lastLocation?.let { newLoc ->
                     val newPoint = LatLng(newLoc.latitude, newLoc.longitude)
                     if (lastLocationObj != null) {
-                        val dist = lastLocationObj!!.distanceTo(newLoc)
-                        totalDistanceMeters += dist
+                        totalDistanceMeters += lastLocationObj!!.distanceTo(newLoc)
                     }
                     lastLocationObj = newLoc
-                    if (newLoc.hasSpeed()) {
-                        currentSpeedMps = newLoc.speed
-                    }
+                    if (newLoc.hasSpeed()) currentSpeedMps = newLoc.speed
                     pathPoints = pathPoints + newPoint
                     cameraPositionState.move(CameraUpdateFactory.newLatLng(newPoint))
                 }
@@ -162,20 +192,56 @@ fun TrackingScreen(
         onDispose { fusedLocationClient.removeLocationUpdates(callback) }
     }
 
-    // --- ИНТЕРФЕЙС (остается почти без изменений) ---
+    // ✅ 5. Логика "Стоп и Сохранить"
+    fun performStopAndSave() {
+        isSnapshotting = true
+        scope.launch {
+            // А. Делаем скриншот
+            val bitmap = try {
+                googleMap?.awaitSnapshot()
+            } catch (e: Exception) { null }
+
+            // Б. Сохраняем во временный файл
+            var path: String? = null
+            if (bitmap != null) {
+                val file = File(context.cacheDir, "run_map_${System.currentTimeMillis()}.jpg")
+                FileOutputStream(file).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
+                }
+                path = file.absolutePath
+            }
+
+            // В. Передаем результат наверх
+            onFinish(
+                RunResult(
+                    distanceMeters = totalDistanceMeters,
+                    durationSeconds = secondsElapsed,
+                    calories = caloriesBurned,
+                    avgSpeedKmh = if (secondsElapsed > 0) (totalDistanceMeters/1000f)/(secondsElapsed/3600f) else 0f,
+                    steps = steps,
+                    screenshotPath = path
+                )
+            )
+            isSnapshotting = false
+        }
+    }
+
+    // --- ИНТЕРФЕЙС ---
     Box(modifier = Modifier.fillMaxSize()) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
-            properties = MapProperties(isMyLocationEnabled = true), // Разрешение есть, всегда true
+            properties = MapProperties(isMyLocationEnabled = true),
             uiSettings = MapUiSettings(myLocationButtonEnabled = true, zoomControlsEnabled = false)
         ) {
+            // ✅ Запоминаем объект карты для скриншота
+            MapEffect(Unit) { map -> googleMap = map }
+
             if (pathPoints.isNotEmpty()) {
                 Polyline(points = pathPoints, color = Color(0xFF0066FF), width = 20f)
             }
         }
 
-        // КАРТОЧКА С ДАННЫМИ (без изменений)
         Card(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -196,28 +262,38 @@ fun TrackingScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     StatItem(value = String.format("%.2f km", distanceKm), label = "Distance")
-                    StatItem(value = String.format("%.1f km/h", speedKmh), label = "Speed")
-                    StatItem(value = avgPaceText, label = "Avg Pace")
+                    StatItem(value = "$caloriesBurned", label = "Kcal")
+                    StatItem(value = "$steps", label = "Steps")
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(text = "Steps: $steps", fontSize = 16.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
-                Spacer(modifier = Modifier.height(20.dp))
+
+                // ✅ Обновленная кнопка
                 Button(
-                    onClick = onBack,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
+                    onClick = { performStopAndSave() },
+                    // Блокируем, если уже идет сохранение или скриншот
+                    enabled = !isUploading && !isSnapshotting,
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text("STOP RUN", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    if (isUploading || isSnapshotting) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if(isSnapshotting) "Saving Map..." else "Uploading...")
+                    } else {
+                        Text("STOP", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
     }
 }
 
-// Компонент StatItem остается без изменений
+// ✅ Extension-функция для скриншота карты
+suspend fun GoogleMap.awaitSnapshot(): Bitmap? = suspendCancellableCoroutine { cont ->
+    this.snapshot { bmp -> cont.resume(bmp) }
+}
+
 @Composable
 fun StatItem(value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
