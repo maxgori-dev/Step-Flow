@@ -8,27 +8,14 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.location.Location
 import android.os.Build
 import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,103 +41,119 @@ fun TrackingScreen(
 ) {
     val context = LocalContext.current
 
-    // --- 1. ТАЙМЕР ---
+    // --- СОСТОЯНИЕ ДАННЫХ ---
     var secondsElapsed by remember { mutableLongStateOf(0L) }
+    var totalDistanceMeters by remember { mutableFloatStateOf(0f) }
+    var currentSpeedMps by remember { mutableFloatStateOf(0f) } // м/с
+    var steps by remember { mutableIntStateOf(0) }
+
+    // --- МАТЕМАТИКА ---
+
+    // 1. Дистанция в км
+    val distanceKm = totalDistanceMeters / 1000.0
+
+    // 2. Текущая скорость (м/с -> км/ч)
+    val speedKmh = currentSpeedMps * 3.6
+
+    // 3. Средний темп (время на 1 км)
+    val avgPaceText = remember(distanceKm, secondsElapsed) {
+        if (distanceKm > 0.05) { // Считаем только если прошли > 50м
+            val totalMinutes = secondsElapsed / 60.0
+            val paceMinPerKm = totalMinutes / distanceKm
+
+            val pMin = paceMinPerKm.toInt()
+            val pSec = ((paceMinPerKm - pMin) * 60).toInt()
+            String.format(Locale.US, "%d:%02d /km", pMin, pSec)
+        } else {
+            "-:-- /km"
+        }
+    }
+
+    // 4. Таймер 00:00:00
+    val formattedTime = remember(secondsElapsed) {
+        val h = secondsElapsed / 3600
+        val m = (secondsElapsed % 3600) / 60
+        val s = secondsElapsed % 60
+        String.format(Locale.US, "%02d:%02d:%02d", h, m, s)
+    }
+
+    // --- ЗАПУСК ТАЙМЕРА ---
     LaunchedEffect(Unit) {
         while (isActive) {
             delay(1000L)
             secondsElapsed++
         }
     }
-    // Форматирование времени 00:00:00
-    val formattedTime = remember(secondsElapsed) {
-        val h = secondsElapsed / 3600
-        val m = (secondsElapsed % 3600) / 60
-        val s = secondsElapsed % 60
-        String.format(Locale.getDefault(), "%02d:%02d:%02d", h, m, s)
-    }
 
-    // --- 2. ШАГОМЕР ---
-    var steps by remember { mutableIntStateOf(0) }
-    // SensorManager для доступа к датчику шагов
+    // --- ШАГОМЕР ---
     val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
     val stepSensor = remember { sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) }
 
     DisposableEffect(Unit) {
         val listener = object : SensorEventListener {
-            var initialSteps = -1f // Запоминаем кол-во шагов при старте
-
+            var initialSteps = -1f
             override fun onSensorChanged(event: SensorEvent?) {
                 event?.let {
                     if (it.values.isNotEmpty()) {
-                        val currentSteps = it.values[0]
-                        // Если это первое измерение, запоминаем его как "ноль"
-                        if (initialSteps == -1f) {
-                            initialSteps = currentSteps
-                        }
-                        // Текущие шаги за тренировку = Всего - Начальное
-                        steps = (currentSteps - initialSteps).toInt().coerceAtLeast(0)
+                        val current = it.values[0]
+                        if (initialSteps == -1f) initialSteps = current
+                        steps = (current - initialSteps).toInt().coerceAtLeast(0)
                     }
                 }
             }
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+            override fun onAccuracyChanged(s: Sensor?, a: Int) {}
         }
-
-        // Регистрируем слушателя, если датчик есть
-        if (stepSensor != null) {
-            sensorManager.registerListener(listener, stepSensor, SensorManager.SENSOR_DELAY_UI)
-        }
-
-        onDispose {
-            sensorManager.unregisterListener(listener)
-        }
+        if (stepSensor != null) sensorManager.registerListener(listener, stepSensor, SensorManager.SENSOR_DELAY_UI)
+        onDispose { sensorManager.unregisterListener(listener) }
     }
 
-    // --- 3. ГЕОЛОКАЦИЯ И РАЗРЕШЕНИЯ ---
+    // --- ГЕОЛОКАЦИЯ ---
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var pathPoints by remember { mutableStateOf(listOf<LatLng>()) }
+    var lastLocationObj by remember { mutableStateOf<Location?>(null) }
+
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(0.0, 0.0), 16f)
     }
 
-    // Собираем список нужных разрешений
-    val permissionsToRequest = mutableListOf(
-        Manifest.permission.ACCESS_FINE_LOCATION
-    )
-    // На Android 10+ (API 29) нужно разрешение на физическую активность
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        permissionsToRequest.add(Manifest.permission.ACTIVITY_RECOGNITION)
+    var hasPermission by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
     }
 
-    // Лаунчер для запроса списка разрешений
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { perms ->
-        // Можно проверить perms[Manifest.permission.ACCESS_FINE_LOCATION] == true
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        hasPermission = it[Manifest.permission.ACCESS_FINE_LOCATION] == true
     }
 
-    // Запускаем проверку при старте
     LaunchedEffect(Unit) {
-        val allGranted = permissionsToRequest.all {
-            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-        }
-        if (!allGranted) {
-            permissionLauncher.launch(permissionsToRequest.toTypedArray())
-        }
+        val perms = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) perms.add(Manifest.permission.ACTIVITY_RECOGNITION)
+        if (!hasPermission) permissionLauncher.launch(perms.toTypedArray())
     }
 
-    // Проверка, есть ли разрешение прямо сейчас для логики трекинга
-    val hasLocPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-
-    DisposableEffect(hasLocPermission) {
-        if (hasLocPermission) {
+    DisposableEffect(hasPermission) {
+        if (hasPermission) {
             val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000)
                 .setMinUpdateIntervalMillis(1000)
                 .build()
+
             val callback = object : LocationCallback() {
                 override fun onLocationResult(res: LocationResult) {
-                    res.lastLocation?.let { loc ->
-                        val newPoint = LatLng(loc.latitude, loc.longitude)
+                    res.lastLocation?.let { newLoc ->
+                        val newPoint = LatLng(newLoc.latitude, newLoc.longitude)
+
+                        // Считаем дистанцию
+                        if (lastLocationObj != null) {
+                            val dist = lastLocationObj!!.distanceTo(newLoc)
+                            totalDistanceMeters += dist
+                        }
+                        lastLocationObj = newLoc
+
+                        // Скорость
+                        if (newLoc.hasSpeed()) {
+                            currentSpeedMps = newLoc.speed
+                        }
+
+                        // Рисуем линию
                         pathPoints = pathPoints + newPoint
                         cameraPositionState.move(CameraUpdateFactory.newLatLng(newPoint))
                     }
@@ -163,13 +166,12 @@ fun TrackingScreen(
         }
     }
 
-    // --- 4. UI ЭКРАНА ---
+    // --- ИНТЕРФЕЙС ---
     Box(modifier = Modifier.fillMaxSize()) {
-        // Карта
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
-            properties = MapProperties(isMyLocationEnabled = hasLocPermission),
+            properties = MapProperties(isMyLocationEnabled = hasPermission),
             uiSettings = MapUiSettings(myLocationButtonEnabled = true, zoomControlsEnabled = false)
         ) {
             if (pathPoints.isNotEmpty()) {
@@ -177,50 +179,58 @@ fun TrackingScreen(
             }
         }
 
-        // Нижняя панель с информацией
+        // КАРТОЧКА С ДАННЫМИ
         Card(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .padding(16.dp),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier.padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Время
+                // Таймер
                 Text(
                     text = formattedTime,
-                    fontSize = 48.sp,
+                    fontSize = 56.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    letterSpacing = 2.sp
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // Шаги
+                // Статистика в один ряд
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween // Равномерно распределяем
                 ) {
-                    Text(
-                        text = "Steps: $steps", // Можно заменить на иконку 👣 + текст
-                        fontSize = 20.sp,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
+                    StatItem(value = String.format("%.2f km", distanceKm), label = "Distance")
+                    StatItem(value = String.format("%.1f km/h", speedKmh), label = "Speed")
+                    StatItem(value = avgPaceText, label = "Avg Pace")
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Кнопка Стоп
+                // Шаги
+                Text(
+                    text = "Steps: $steps",
+                    fontSize = 16.sp,
+                    color = Color.Gray,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
                 Button(
                     onClick = onBack,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
+                        .height(54.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     shape = RoundedCornerShape(16.dp)
                 ) {
@@ -228,5 +238,23 @@ fun TrackingScreen(
                 }
             }
         }
+    }
+}
+
+// Компонент для одной цифры статистики
+@Composable
+fun StatItem(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            fontSize = 22.sp, // Чуть крупнее
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = Color.Gray
+        )
     }
 }
