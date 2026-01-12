@@ -6,7 +6,7 @@ data class RunModel(
     val timestamp: Long = 0,
     val distanceMeters: Float = 0f,
     val durationSeconds: Long = 0,
-    val calories: Int = 0,
+    val calories: Float = 0f,
     val avgSpeedKmh: Float = 0f,
     val steps: Int = 0,
     val mapImageUrl: String = "" // Ссылка на картинку

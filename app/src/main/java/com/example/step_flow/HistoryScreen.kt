@@ -155,7 +155,7 @@ fun RunHistoryItem(run: RunModel, onClick: () -> Unit) {
             // Калории справа
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "${run.calories}",
+                    text = String.format(Locale.US, "%.1f", run.calories),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFFFF9800)

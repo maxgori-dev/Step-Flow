@@ -1,17 +1,15 @@
 package com.example.step_flow
 
+import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.graphics.Bitmap
+import android.os.Build
 import android.os.IBinder
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,12 +35,13 @@ import kotlin.coroutines.resume
 data class RunResult(
     val distanceMeters: Float,
     val durationSeconds: Long,
-    val calories: Int,
+    val calories: Float, // Используем Float
     val avgSpeedKmh: Float,
     val steps: Int,
     val screenshotPath: String?
 )
 
+@SuppressLint("MissingPermission")
 @Composable
 fun TrackingScreen(
     weightKg: Double,
@@ -55,58 +54,55 @@ fun TrackingScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // --- ПОДКЛЮЧЕНИЕ К СЕРВИСУ ---
     var trackingService by remember { mutableStateOf<TrackingService?>(null) }
-    var isBound by remember { mutableStateOf(false) }
 
     val connection = remember {
         object : ServiceConnection {
-            override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-                val localBinder = binder as TrackingService.LocalBinder
-                trackingService = localBinder.getService()
-                isBound = true
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                trackingService = (service as TrackingService.LocalBinder).getService()
             }
-
             override fun onServiceDisconnected(name: ComponentName?) {
-                isBound = false
                 trackingService = null
             }
         }
     }
 
+    // Запуск и привязка
     LaunchedEffect(Unit) {
-        val intent = Intent(context, TrackingService::class.java).apply {
-            putExtra("WEIGHT", weightKg)
-            putExtra("HEIGHT", heightCm)
-            putExtra("AGE", ageYears)
+        Intent(context, TrackingService::class.java).also { intent ->
+            intent.putExtra("WEIGHT", weightKg) // Передаем вес в сервис!
+            intent.putExtra("HEIGHT", heightCm)
+            intent.putExtra("AGE", ageYears)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+            context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
         }
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            context.startService(intent)
-        }
-        context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            if (isBound) {
-                context.unbindService(connection)
-                isBound = false
-            }
+            try { context.unbindService(connection) } catch (e: Exception) {}
         }
     }
 
-    // --- Чтение данных ---
-    val duration by trackingService?.durationSeconds?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(0L) }
-    val distance by trackingService?.distanceMeters?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(0f) }
-    val calories by trackingService?.calories?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(0) }
-    val steps by trackingService?.steps?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(0) }
+    // --- ПОДПИСКА НА ДАННЫЕ СЕРВИСА ---
+    // Теперь мы просто ЧИТАЕМ готовые данные, а не считаем их
+    val duration by trackingService?.durationSeconds?.collectAsStateWithLifecycle() ?: remember { mutableLongStateOf(0L) }
+    val distance by trackingService?.distanceMeters?.collectAsStateWithLifecycle() ?: remember { mutableFloatStateOf(0f) }
+
+    // 👇 ВОТ ЗДЕСЬ МЫ БЕРЕМ КАЛОРИИ ИЗ СЕРВИСА (где вы поставили 0)
+    val calories by trackingService?.calories?.collectAsStateWithLifecycle() ?: remember { mutableFloatStateOf(0f) }
+
+    val steps by trackingService?.steps?.collectAsStateWithLifecycle() ?: remember { mutableIntStateOf(0) }
     val pathPoints by trackingService?.pathPoints?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(emptyList()) }
-    val speedKmh by trackingService?.currentSpeedKmh?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(0f) }
+    val speedKmh by trackingService?.currentSpeedKmh?.collectAsStateWithLifecycle() ?: remember { mutableFloatStateOf(0f) }
 
-    // ✅ Слушаем состояние паузы
-    val isPaused by trackingService?.isPaused?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(false) }
-
+    // --- UI КАРТЫ ---
     var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
     var isSnapshotting by remember { mutableStateOf(false) }
 
@@ -115,42 +111,48 @@ fun TrackingScreen(
     }
 
     LaunchedEffect(pathPoints) {
-        pathPoints.lastOrNull()?.let { last ->
-            cameraPositionState.animate(CameraUpdateFactory.newLatLng(last))
+        pathPoints.lastOrNull()?.let {
+            cameraPositionState.animate(CameraUpdateFactory.newLatLng(it), 1000)
         }
     }
 
-    fun stopAndSave() {
-        if (trackingService == null) return
+    // --- ФОРМАТИРОВАНИЕ ---
+    val formattedTime = remember(duration) {
+        val h = duration / 3600
+        val m = (duration % 3600) / 60
+        val s = duration % 60
+        String.format(Locale.US, "%02d:%02d:%02d", h, m, s)
+    }
+
+    fun performStopAndSave() {
         isSnapshotting = true
-
         scope.launch {
-            val bitmap = try {
-                googleMap?.awaitSnapshot()
-            } catch (e: Exception) { null }
-
+            val bitmap = googleMap?.awaitSnapshot()
             var path: String? = null
             if (bitmap != null) {
-                val file = File(context.cacheDir, "map_snap_${System.currentTimeMillis()}.jpg")
+                val file = File(context.cacheDir, "run_map_${System.currentTimeMillis()}.jpg")
                 FileOutputStream(file).use { out ->
                     bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
                 }
                 path = file.absolutePath
             }
 
-            val result = RunResult(
-                distanceMeters = distance,
-                durationSeconds = duration,
-                calories = calories,
-                avgSpeedKmh = speedKmh,
-                steps = steps,
-                screenshotPath = path
-            )
             trackingService?.stopService()
-            onFinish(result)
+
+            onFinish(
+                RunResult(
+                    distanceMeters = distance,
+                    durationSeconds = duration,
+                    calories = calories, // Передаем то, что насчитал сервис
+                    avgSpeedKmh = speedKmh,
+                    steps = steps,
+                    screenshotPath = path
+                )
+            )
         }
     }
 
+    // --- UI ---
     Box(modifier = Modifier.fillMaxSize()) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
@@ -164,94 +166,54 @@ fun TrackingScreen(
             }
         }
 
-        // Карточка статистики
         Card(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Таймер
-                val h = duration / 3600
-                val m = (duration % 3600) / 60
-                val s = duration % 60
-                Text(
-                    text = String.format(Locale.US, "%02d:%02d:%02d", h, m, s),
-                    fontSize = 50.sp, fontWeight = FontWeight.Bold,
-                    color = if (isPaused) Color.Gray else Color.Black // Серый цвет времени на паузе
-                )
-                if (isPaused) {
-                    Text("PAUSED", fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                } else {
-                    Spacer(modifier = Modifier.height(14.dp)) // Чтобы высота не прыгала
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
+                Text(formattedTime, fontSize = 56.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, letterSpacing = 2.sp)
+                Spacer(modifier = Modifier.height(20.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceAround
                 ) {
-                    StatItem(value = String.format("%.2f km", distance / 1000f), label = "Distance")
-                    StatItem(value = "$calories", label = "Kcal")
+                    StatItem(value = String.format(Locale.US, "%.2f km", distance / 1000f), label = "Distance")
+                    // 👇 Отображаем калории из сервиса
+                    StatItem(value = String.format(Locale.US, "%.1f", calories), label = "Kcal")
                     StatItem(value = "$steps", label = "Steps")
                 }
+                Spacer(modifier = Modifier.height(16.dp))
 
-                Spacer(modifier = Modifier.height(24.dp))
+                // Кнопки (Пауза / Стоп)
+                val isPaused by trackingService?.isPaused?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(false) }
 
-                // ✅ КНОПКИ УПРАВЛЕНИЯ
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Кнопка Пауза/Старт
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Button(
                         onClick = {
-                            if (isPaused) trackingService?.resumeService()
-                            else trackingService?.pauseService()
+                            if (isPaused) trackingService?.resumeService() else trackingService?.pauseService()
                         },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isPaused) Color(0xFF4CAF50) else Color(0xFFFFC107) // Зеленый для старта, Желтый для паузы
-                        ),
+                        modifier = Modifier.weight(1f).height(54.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Icon(
-                            imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                            contentDescription = null,
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isPaused) "RESUME" else "PAUSE",
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                        Text(if(isPaused) "RESUME" else "PAUSE", fontWeight = FontWeight.Bold)
                     }
 
-                    // Кнопка Стоп
                     Button(
-                        onClick = { stopAndSave() },
+                        onClick = { performStopAndSave() },
                         enabled = !isUploading && !isSnapshotting,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp),
+                        modifier = Modifier.weight(1f).height(54.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         if (isUploading || isSnapshotting) {
                             CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                         } else {
-                            Icon(Icons.Default.Stop, contentDescription = null, tint = Color.White)
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text("FINISH", fontWeight = FontWeight.Bold)
                         }
                     }
@@ -261,7 +223,6 @@ fun TrackingScreen(
     }
 }
 
-// Extension для скриншота карты
 suspend fun GoogleMap.awaitSnapshot(): Bitmap? = suspendCancellableCoroutine { cont ->
     this.snapshot { bmp -> cont.resume(bmp) }
 }
@@ -269,16 +230,7 @@ suspend fun GoogleMap.awaitSnapshot(): Bitmap? = suspendCancellableCoroutine { c
 @Composable
 fun StatItem(value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = value,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = Color.Gray
-        )
+        Text(text = value, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(text = label, fontSize = 12.sp, color = Color.Gray)
     }
 }

@@ -306,7 +306,7 @@ class MainActivity : ComponentActivity() {
                                         vm.saveRunToFirebase(
                                             distanceMeters = result.distanceMeters,
                                             durationSeconds = result.durationSeconds,
-                                            calories = result.calories,
+                                            calories = result.calories.toFloat(),
                                             avgSpeedKmh = result.avgSpeedKmh,
                                             steps = result.steps,
                                             localScreenshotPath = result.screenshotPath

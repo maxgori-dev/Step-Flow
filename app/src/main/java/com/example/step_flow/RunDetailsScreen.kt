@@ -118,7 +118,7 @@ fun RunDetailsScreen(
                     )
                     DetailCard(
                         modifier = Modifier.weight(1f),
-                        value = "${run.calories}",
+                        value = String.format(Locale.US, "%.1f", run.calories),
                         unit = "kcal",
                         label = "Calories"
                     )

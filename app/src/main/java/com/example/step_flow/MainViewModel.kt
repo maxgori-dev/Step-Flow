@@ -190,7 +190,7 @@ class MainViewModel @Inject constructor(
     fun saveRunToFirebase(
         distanceMeters: Float,
         durationSeconds: Long,
-        calories: Int,
+        calories: Float,
         avgSpeedKmh: Float,
         steps: Int,
         localScreenshotPath: String?

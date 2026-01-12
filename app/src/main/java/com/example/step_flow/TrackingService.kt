@@ -23,6 +23,7 @@ import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.Locale
 
 class TrackingService : Service() {
 
@@ -33,14 +34,14 @@ class TrackingService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    // --- StateFlows ---
+    // --- StateFlow ---
     private val _durationSeconds = MutableStateFlow(0L)
     val durationSeconds = _durationSeconds.asStateFlow()
 
     private val _distanceMeters = MutableStateFlow(0f)
     val distanceMeters = _distanceMeters.asStateFlow()
 
-    private val _calories = MutableStateFlow(0)
+    private val _calories = MutableStateFlow(0f)
     val calories = _calories.asStateFlow()
 
     private val _steps = MutableStateFlow(0)
@@ -55,11 +56,11 @@ class TrackingService : Service() {
     private val _isPaused = MutableStateFlow(false)
     val isPaused = _isPaused.asStateFlow()
 
-    // Служебные переменные
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var sensorManager: SensorManager
     private lateinit var notificationManager: NotificationManager
 
+    // Данные пользователя
     private var weightKg: Double = 70.0
     private var heightCm: Double = 175.0
     private var ageYears: Int = 25
@@ -68,7 +69,6 @@ class TrackingService : Service() {
     private var lastLocation: Location? = null
     private var initialStepCount = -1
 
-    // Для точного накопления дробных частей калорий
     private var preciseCalories: Double = 0.0
 
     override fun onCreate() {
@@ -101,10 +101,10 @@ class TrackingService : Service() {
         serviceScope.launch {
             while (isTracking) {
                 if (!_isPaused.value) {
-                    delay(1000L)
+                    delay(1000L) // Ждем 1 секунду
                     _durationSeconds.value += 1
 
-                    // Считаем калории каждую секунду
+                    // Обновляем калории
                     updateCaloriesForOneSecond()
 
                     updateNotification()
@@ -116,45 +116,37 @@ class TrackingService : Service() {
         registerSensors()
     }
 
-    // ✅ ИСПРАВЛЕНО: Считаем только АКТИВНЫЕ калории
     private fun updateCaloriesForOneSecond() {
         val speed = _currentSpeedKmh.value
 
-        // 1. Определяем общий MET (Total MET)
-        val totalMet = when {
-            speed < 0.5 -> 1.0 // Покой
-            speed < 4.0 -> 3.0 // Ходьба
-            speed < 6.0 -> 4.0 // Быстрая ходьба
-            speed < 8.0 -> 8.0 // Бег трусцой
-            else -> 11.5       // Бег
+        // 🛡️ 1. ЗАЩИТА ОТ ДРЕЙФА GPS
+        // Если скорость меньше 2.0 км/ч, считаем, что мы стоим или топчемся на месте.
+        // Калории не начисляются.
+        if (speed < 2.5f) {
+            return
         }
 
-        // 2. Вычитаем 1.0 (BMR - покой), чтобы получить только АКТИВНЫЕ калории
-        // Если стоим (MET 1.0), то activeMet будет 0.0 -> калории не идут.
-        val activeMet = (totalMet - 1.0).coerceAtLeast(0.0)
-
-        if (activeMet > 0) {
-            // Формула: (ActiveMET * 3.5 * вес) / 200 = Ккал/мин
-            val kcalPerMin = (activeMet * 3.5 * weightKg) / 200.0
-
-            // Переводим в секунды
-            val kcalPerSec = kcalPerMin / 60.0
-
-            preciseCalories += kcalPerSec
-            _calories.value = preciseCalories.toInt()
+        // 🛡️ 2. ДИНАМИЧЕСКИЙ РАСЧЕТ MET (зависит от точной скорости)
+        // Мы не используем жесткие рамки, а умножаем скорость на коэффициент.
+        val met = if (speed <= 7.0) {
+            // Ходьба: Энергозатраты растут медленнее
+            // Пример: 5 км/ч * 0.7 = 3.5 MET (стандарт для ходьбы)
+            speed * 0.7f
+        } else {
+            // Бег: Энергозатраты равны или чуть выше скорости
+            // Пример: 10 км/ч * 1.0 = 10 MET (стандарт для бега)
+            speed * 1.0f
         }
-    }
 
-    fun pauseService() {
-        _isPaused.value = true
-        unregisterSensors()
-        updateNotification()
-    }
+        // 🛡️ 3. СТАНДАРТНАЯ ФОРМУЛА КАЛОРИЙ
+        // Формула: (MET * 3.5 * Вес) / 200 = Ккал в МИНУТУ
+        val kcalPerMin = (met * 3.5 * weightKg) / 200.0
 
-    fun resumeService() {
-        _isPaused.value = false
-        registerSensors()
-        updateNotification()
+        // Делим на 60, чтобы получить порцию за 1 СЕКУНДУ
+        val kcalPerSec = kcalPerMin / 60.0
+
+        preciseCalories += kcalPerSec
+        _calories.value = preciseCalories.toFloat()
     }
 
     @SuppressLint("MissingPermission")
@@ -180,7 +172,7 @@ class TrackingService : Service() {
             if (_isPaused.value) return
 
             result.lastLocation?.let { location ->
-                // Игнорируем плохой сигнал GPS (точность хуже 20 метров), чтобы скорость не скакала
+                // 🛡️ Фильтр плохих точек GPS (>20м)
                 if (location.accuracy > 20) return@let
 
                 if (lastLocation != null) {
@@ -210,8 +202,28 @@ class TrackingService : Service() {
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
     }
 
+    fun pauseService() {
+        _isPaused.value = true
+        unregisterSensors()
+        updateNotification()
+    }
+
+    fun resumeService() {
+        _isPaused.value = false
+        registerSensors()
+        updateNotification()
+    }
+
+    fun stopService() {
+        isTracking = false
+        unregisterSensors()
+        serviceScope.cancel()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
     private fun startForegroundService() {
-        val notification = createNotification("Tracking started...")
+        val notification = createNotification("Workout started...")
         if (Build.VERSION.SDK_INT >= 34) {
             ServiceCompat.startForeground(this, 1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
         } else {
@@ -221,8 +233,8 @@ class TrackingService : Service() {
 
     private fun updateNotification() {
         val stateText = if (_isPaused.value) "PAUSED" else formatTime(_durationSeconds.value)
-        val distStr = String.format("%.2f km", _distanceMeters.value / 1000f)
-        val calStr = "${_calories.value} kcal"
+        val distStr = String.format(Locale.US, "%.2f km", _distanceMeters.value / 1000f)
+        val calStr = String.format(Locale.US, "%.1f kcal", _calories.value)
 
         val notification = createNotification("$stateText • $distStr • $calStr")
         notificationManager.notify(1, notification)
@@ -231,7 +243,7 @@ class TrackingService : Service() {
     private fun createNotification(content: String) = NotificationCompat.Builder(this, "tracking_channel")
         .setContentTitle("Step-Flow Run")
         .setContentText(content)
-        .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+        .setSmallIcon(R.drawable.ic_launcher_foreground) // Замените на вашу иконку!
         .setOngoing(true)
         .setOnlyAlertOnce(true)
         .build()
@@ -243,15 +255,13 @@ class TrackingService : Service() {
         }
     }
 
-    fun stopService() {
-        isTracking = false
-        unregisterSensors()
+    override fun onDestroy() {
+        super.onDestroy()
         serviceScope.cancel()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        unregisterSensors()
     }
 
-    override fun onBind(intent: Intent?): IBinder = binder
+    override fun onBind(intent: Intent): IBinder = binder
 
     private fun formatTime(sec: Long): String {
         val h = sec / 3600
