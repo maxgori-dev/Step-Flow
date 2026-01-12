@@ -34,6 +34,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 
 // Перечисление для управления состоянием экрана
 enum class PermissionScreenState {
@@ -100,7 +102,20 @@ fun PermissionScreen(
 
             // Авто-запрос при первом входе
             LaunchedEffect(Unit) {
-                initialPermissionsLauncher.launch(getInitialPermissions())
+                val perms = getInitialPermissions()
+
+                // Проверяем каждое разрешение вручную
+                val allGranted = perms.all { permission ->
+                    ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+                }
+
+                if (allGranted) {
+                    // Если права уже есть — СРАЗУ переходим дальше, не показывая диалог
+                    onPermissionsGranted()
+                } else {
+                    // Если прав нет — запрашиваем
+                    initialPermissionsLauncher.launch(perms)
+                }
             }
         }
 

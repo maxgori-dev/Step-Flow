@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".StepFlowApp"
@@ -18,13 +21,16 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.StepFlow"
-        tools:targetApi="31">
-
-        android:theme="@style/Theme.StepFlow" >
+        tools:targetApi="31" >
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyA-eAXOWG10BGYKuq0AVK5j0psA6BHV0mo" />
+
+        <service
+            android:name=".TrackingService"
+            android:foregroundServiceType="location"
+            android:exported="false" />
 
 
         <activity

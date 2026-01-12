@@ -1,5 +1,7 @@
 package com.example.step_flow
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -27,19 +29,39 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import java.time.LocalDate
+import com.example.step_flow.data.RunModel
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val vm: MainViewModel by viewModels()
+
+    private fun hasRequiredPermissions(): Boolean {
+        val hasLocation = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        // Для Android 10+ нужно еще разрешение на физическую активность
+        val hasActivity = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACTIVITY_RECOGNITION
+            ) == PackageManager.PERMISSION_GRANTED
+        } else true
+
+        return hasLocation && hasActivity
+    }
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,6 +69,12 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val ui by vm.uiState.collectAsStateWithLifecycle()
+
+            val uploadState by vm.uploadState.collectAsStateWithLifecycle()
+            // ПОДПИСЫВАЕМСЯ НА СПИСОК ЗАБЕГОВ
+            val runsList by vm.runsFlow.collectAsStateWithLifecycle()
+            // ПЕРЕМЕННАЯ ДЛЯ ХРАНЕНИЯ ВЫБРАННОГО ЗАБЕГА
+            var selectedRun by remember { mutableStateOf<RunModel?>(null) }
 
             if (!ui.loaded) {
                 MaterialTheme { Surface(modifier = Modifier.fillMaxSize()) {} }
@@ -132,6 +160,14 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            LaunchedEffect(uploadState) {
+                if (uploadState is UploadState.Success) {
+                    vm.resetUploadState()
+                    // Используем флаг для навигации или сбрасываем состояние внутри обработчика
+                    // Но так как navigateRoot локальная функция, мы сделаем это через onFinish
+                }
+            }
+
             BackHandler(enabled = true) { goBack() }
 
             MaterialTheme {
@@ -173,9 +209,17 @@ class MainActivity : ComponentActivity() {
                             // 2 — Home
                             2 -> {
                                 HomeScreenNow(
-                                    onRunClick = { navigate(10) },
+                                    onRunClick = {
+                                        if (hasRequiredPermissions()) {
+                                        // Если права УЖЕ есть -> сразу запускаем тренировку (шаг 11)
+                                        // Используем navigateRoot, чтобы нельзя было вернуться назад к меню кнопкой "Назад"
+                                        navigateRoot(11)
+                                    } else {
+                                        // Если прав НЕТ -> идем на экран запроса (шаг 10)
+                                        navigate(10)
+                                    } },
                                     onTileCalendar = { navigate(3) },
-                                    onTileHistory = { /* TODO */ },
+                                    onTileHistory = { navigate(12) },
                                     onTileAchievements = { /* TODO */ },
                                     onTopProfile = { navigate(4) },
                                     onTopSettings = { navigate(6) },
@@ -270,12 +314,53 @@ class MainActivity : ComponentActivity() {
                             }
                             // ИСПРАВЛЕНО: Шаг 11 - теперь это экран тренировки
                             11 -> {
+                                val w = ui.weightKg.toDoubleOrNull() ?: 64.0
+                                val h = ui.heightCm.toDoubleOrNull() ?: 172.0
+                                val a = ui.ageYears.toIntOrNull() ?: 34
                                 TrackingScreen(
-                                    onBack = {
-                                        // Завершили тренировку -> возвращаемся на главный экран (шаг 2)
+                                    weightKg = w,
+                                    heightCm = h,
+                                    ageYears = a,
+                                    isUploading = uploadState is UploadState.Loading,
+                                    onFinish = { result ->
+                                        // 2. ЗАПУСКАЕМ СОХРАНЕНИЕ В FIREBASE
+                                        vm.saveRunToFirebase(
+                                            distanceMeters = result.distanceMeters,
+                                            durationSeconds = result.durationSeconds,
+                                            calories = result.calories,
+                                            avgSpeedKmh = result.avgSpeedKmh,
+                                            steps = result.steps,
+                                            localScreenshotPath = result.screenshotPath
+                                        )
+                                        // Сразу уходим на главный экран, загрузка продолжится в фоне (ViewModelScope)
+                                        // Либо можно остаться и ждать UploadState.Success
                                         navigateRoot(2)
-                                    }
+                                    },
+                                    onBack = { goBack() }
                                 )
+                            }
+
+                            12 -> {
+                                HistoryScreen(
+                                    runs = runsList,
+                                    onRunClick = { run ->
+                                        selectedRun = run // Запоминаем забег
+                                        navigate(13)      // Идем в детали
+                                    },
+                                    onBack = { goBack() }
+                                )
+                            }
+
+                            13 -> {
+                                if (selectedRun != null) {
+                                    RunDetailsScreen(
+                                        run = selectedRun!!,
+                                        onBack = { goBack() }
+                                    )
+                                } else {
+                                    // Если вдруг null, вернемся назад
+                                    LaunchedEffect(Unit) { goBack() }
+                                }
                             }
                         }
                     }
@@ -283,45 +368,45 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-}
 
-@OptIn(ExperimentalAnimationApi::class)
-@Composable
-private fun AnimatedStepHost(
-    step: Int,
-    forward: Boolean,
-    content: @Composable (Int) -> Unit
-) {
-    val iosEase = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
-    val duration = 680
+    @OptIn(ExperimentalAnimationApi::class)
+    @Composable
+    private fun AnimatedStepHost(
+        step: Int,
+        forward: Boolean,
+        content: @Composable (Int) -> Unit
+    ) {
+        val iosEase = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+        val duration = 680
 
-    AnimatedContent(
-        targetState = step,
-        transitionSpec = {
-            val inSlide = slideInHorizontally(
-                animationSpec = tween(durationMillis = duration, easing = iosEase)
-            ) { full -> if (forward) full / 6 else -full / 10 }
+        AnimatedContent(
+            targetState = step,
+            transitionSpec = {
+                val inSlide = slideInHorizontally(
+                    animationSpec = tween(durationMillis = duration, easing = iosEase)
+                ) { full -> if (forward) full / 6 else -full / 10 }
 
-            val outSlide = slideOutHorizontally(
-                animationSpec = tween(durationMillis = duration, easing = iosEase)
-            ) { full -> if (forward) -full / 14 else full / 7 }
+                val outSlide = slideOutHorizontally(
+                    animationSpec = tween(durationMillis = duration, easing = iosEase)
+                ) { full -> if (forward) -full / 14 else full / 7 }
 
-            val inFade = fadeIn(
-                animationSpec = tween(durationMillis = duration, easing = iosEase),
-                initialAlpha = 0.86f
-            )
+                val inFade = fadeIn(
+                    animationSpec = tween(durationMillis = duration, easing = iosEase),
+                    initialAlpha = 0.86f
+                )
 
-            val outFade = fadeOut(
-                animationSpec = tween(durationMillis = duration, easing = iosEase),
-                targetAlpha = 0.98f
-            )
+                val outFade = fadeOut(
+                    animationSpec = tween(durationMillis = duration, easing = iosEase),
+                    targetAlpha = 0.98f
+                )
 
-            (inSlide + inFade)
-                .togetherWith(outSlide + outFade)
-                .using(SizeTransform(clip = false))
-        },
-        label = "UltraSmoothIOSPushPop"
-    ) { target ->
-        content(target)
+                (inSlide + inFade)
+                    .togetherWith(outSlide + outFade)
+                    .using(SizeTransform(clip = false))
+            },
+            label = "UltraSmoothIOSPushPop"
+        ) { target ->
+            content(target)
+        }
     }
 }
