@@ -30,10 +30,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,7 +52,6 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
 
-        // Для Android 10+ нужно еще разрешение на физическую активность
         val hasActivity = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ContextCompat.checkSelfPermission(
                 this,
@@ -69,11 +68,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val ui by vm.uiState.collectAsStateWithLifecycle()
-
             val uploadState by vm.uploadState.collectAsStateWithLifecycle()
-            // ПОДПИСЫВАЕМСЯ НА СПИСОК ЗАБЕГОВ
+
             val runsList by vm.runsFlow.collectAsStateWithLifecycle()
-            // ПЕРЕМЕННАЯ ДЛЯ ХРАНЕНИЯ ВЫБРАННОГО ЗАБЕГА
             var selectedRun by remember { mutableStateOf<RunModel?>(null) }
 
             if (!ui.loaded) {
@@ -113,7 +110,6 @@ class MainActivity : ComponentActivity() {
 
             var step by rememberSaveable { mutableIntStateOf(0) }
             var forwardAnim by rememberSaveable { mutableStateOf(true) }
-
             var bootstrapped by rememberSaveable { mutableStateOf(false) }
 
             LaunchedEffect(ui.loaded, ui.name, ui.setupDone) {
@@ -163,8 +159,6 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(uploadState) {
                 if (uploadState is UploadState.Success) {
                     vm.resetUploadState()
-                    // Используем флаг для навигации или сбрасываем состояние внутри обработчика
-                    // Но так как navigateRoot локальная функция, мы сделаем это через onFinish
                 }
             }
 
@@ -175,7 +169,6 @@ class MainActivity : ComponentActivity() {
                     AnimatedStepHost(step = step, forward = forwardAnim) { target ->
                         when (target) {
 
-                            // 0 — Welcome (name)
                             0 -> {
                                 WelcomeNameScreen(
                                     name = nameDraft,
@@ -190,7 +183,6 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            // 1 — Profile setup
                             1 -> {
                                 ProfileSetupScreen(
                                     heightCm = heightCm,
@@ -206,21 +198,18 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            // 2 — Home
                             2 -> {
                                 HomeScreenNow(
                                     onRunClick = {
                                         if (hasRequiredPermissions()) {
-                                        // Если права УЖЕ есть -> сразу запускаем тренировку (шаг 11)
-                                        // Используем navigateRoot, чтобы нельзя было вернуться назад к меню кнопкой "Назад"
-                                        navigateRoot(11)
-                                    } else {
-                                        // Если прав НЕТ -> идем на экран запроса (шаг 10)
-                                        navigate(10)
-                                    } },
+                                            navigateRoot(11)
+                                        } else {
+                                            navigate(10)
+                                        }
+                                    },
                                     onTileCalendar = { navigate(3) },
                                     onTileHistory = { navigate(12) },
-                                    onTileAchievements = { /* TODO */ },
+                                    onTileAchievements = { navigate(14) },
                                     onTopProfile = { navigate(4) },
                                     onTopSettings = { navigate(6) },
                                     onBottomTabChange = { tab ->
@@ -233,7 +222,6 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            // 3 — Activity Calendar
                             3 -> {
                                 ActivityCalendarScreen(
                                     initialSelectedDate = selectedDate,
@@ -243,7 +231,6 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            // 4 — Profile (✅ avatar сохранение)
                             4 -> {
                                 ProfileScreen(
                                     name = savedName,
@@ -259,7 +246,6 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            // 5 — Personal Details
                             5 -> {
                                 PersonalDetailsScreen(
                                     name = savedName,
@@ -278,7 +264,6 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
-                            // 6 — Settings
                             6 -> {
                                 SettingsScreen(
                                     language = language,
@@ -299,31 +284,25 @@ class MainActivity : ComponentActivity() {
                             7 -> FaqScreen(onBack = { goBack() })
                             8 -> ContactUsScreen(onBack = { goBack() })
                             9 -> TipsAndTricksScreen(onBack = { goBack() })
+
                             10 -> {
                                 PermissionScreen(
-                                    onPermissionsGranted = {
-                                        // Разрешения получены -> переходим на экран тренировки (шаг 11)
-                                        // navigateRoot, чтобы нельзя было вернуться назад к разрешениям
-                                        navigateRoot(11)
-                                    },
-                                    onPermissionDenied = {
-                                        // Отказано -> возвращаемся на предыдущий экран (Home)
-                                        goBack()
-                                    }
+                                    onPermissionsGranted = { navigateRoot(11) },
+                                    onPermissionDenied = { goBack() }
                                 )
                             }
-                            // ИСПРАВЛЕНО: Шаг 11 - теперь это экран тренировки
+
                             11 -> {
                                 val w = ui.weightKg.toDoubleOrNull() ?: 64.0
                                 val h = ui.heightCm.toDoubleOrNull() ?: 172.0
                                 val a = ui.ageYears.toIntOrNull() ?: 34
+
                                 TrackingScreen(
                                     weightKg = w,
                                     heightCm = h,
                                     ageYears = a,
                                     isUploading = uploadState is UploadState.Loading,
                                     onFinish = { result ->
-                                        // 2. ЗАПУСКАЕМ СОХРАНЕНИЕ В FIREBASE
                                         vm.saveRunToFirebase(
                                             distanceMeters = result.distanceMeters,
                                             durationSeconds = result.durationSeconds,
@@ -332,8 +311,6 @@ class MainActivity : ComponentActivity() {
                                             steps = result.steps,
                                             localScreenshotPath = result.screenshotPath
                                         )
-                                        // Сразу уходим на главный экран, загрузка продолжится в фоне (ViewModelScope)
-                                        // Либо можно остаться и ждать UploadState.Success
                                         navigateRoot(2)
                                     },
                                     onBack = { goBack() }
@@ -344,8 +321,8 @@ class MainActivity : ComponentActivity() {
                                 HistoryScreen(
                                     runs = runsList,
                                     onRunClick = { run ->
-                                        selectedRun = run // Запоминаем забег
-                                        navigate(13)      // Идем в детали
+                                        selectedRun = run
+                                        navigate(13)
                                     },
                                     onBack = { goBack() }
                                 )
@@ -358,9 +335,18 @@ class MainActivity : ComponentActivity() {
                                         onBack = { goBack() }
                                     )
                                 } else {
-                                    // Если вдруг null, вернемся назад
                                     LaunchedEffect(Unit) { goBack() }
                                 }
+                            }
+
+                            // ✅ FIX: теперь передаём name + avatarUriString
+                            14 -> {
+                                AchievementsScreen(
+                                    runs = runsList,
+                                    name = savedName,
+                                    avatarUriString = savedAvatarUri,
+                                    onBack = { goBack() }
+                                )
                             }
                         }
                     }
