@@ -255,6 +255,28 @@ class MainActivity : ComponentActivity() {
                             7 -> FaqScreen(onBack = { goBack() })
                             8 -> ContactUsScreen(onBack = { goBack() })
                             9 -> TipsAndTricksScreen(onBack = { goBack() })
+                            10 -> {
+                                PermissionScreen(
+                                    onPermissionsGranted = {
+                                        // Разрешения получены -> переходим на экран тренировки (шаг 11)
+                                        // navigateRoot, чтобы нельзя было вернуться назад к разрешениям
+                                        navigateRoot(11)
+                                    },
+                                    onPermissionDenied = {
+                                        // Отказано -> возвращаемся на предыдущий экран (Home)
+                                        goBack()
+                                    }
+                                )
+                            }
+                            // ИСПРАВЛЕНО: Шаг 11 - теперь это экран тренировки
+                            11 -> {
+                                TrackingScreen(
+                                    onBack = {
+                                        // Завершили тренировку -> возвращаемся на главный экран (шаг 2)
+                                        navigateRoot(2)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
