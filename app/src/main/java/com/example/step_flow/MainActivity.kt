@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -19,62 +20,104 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.listSaver
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dagger.hilt.android.AndroidEntryPoint
 import java.time.LocalDate
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    private val vm: MainViewModel by viewModels()
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
-            // ===== Profile =====
-            var name by rememberSaveable { mutableStateOf("") }
+            val ui by vm.uiState.collectAsStateWithLifecycle()
 
-            // Personal details
+            if (!ui.loaded) {
+                MaterialTheme { Surface(modifier = Modifier.fillMaxSize()) {} }
+                return@setContent
+            }
+
+            val savedName = ui.name
+            val savedAvatarUri = ui.avatarUri
+
+            var nameDraft by rememberSaveable { mutableStateOf("") }
+
             var heightCm by rememberSaveable { mutableStateOf("") }
             var weightKg by rememberSaveable { mutableStateOf("") }
             var ageYears by rememberSaveable { mutableStateOf("") }
 
-            // ===== Settings =====
+            LaunchedEffect(ui.heightCm, ui.weightKg, ui.ageYears) {
+                if (heightCm.isBlank()) heightCm = ui.heightCm
+                if (weightKg.isBlank()) weightKg = ui.weightKg
+                if (ageYears.isBlank()) ageYears = ui.ageYears
+            }
+
             var language by rememberSaveable { mutableStateOf(AppLanguage.System) }
             var units by rememberSaveable { mutableStateOf(Units.Metric) }
             var theme by rememberSaveable { mutableStateOf(AppTheme.System) }
             var fontScale by rememberSaveable { mutableFloatStateOf(1.0f) }
             var notificationsEnabled by rememberSaveable { mutableStateOf(true) }
 
-            // Calendar state
             var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now()) }
 
-            /**
-             * ✅ Back stack для step-навигации
-             * 0 welcome, 1 setup, 2 home, 3 calendar, 4 profile, 5 personal, 6 settings, 7 faq, 8 contact, 9 tips
-             */
             val backStack = rememberSaveable(
                 saver = listSaver(
                     save = { it.toList() },
                     restore = { it.toMutableStateList() }
                 )
-            ) { mutableStateListOf(0) }
+            ) { mutableStateListOf<Int>() }
 
-            var step by rememberSaveable { mutableIntStateOf(backStack.last()) }
-
-            // ✅ направление анимации (вперёд / назад)
+            var step by rememberSaveable { mutableIntStateOf(0) }
             var forwardAnim by rememberSaveable { mutableStateOf(true) }
+
+            var bootstrapped by rememberSaveable { mutableStateOf(false) }
+
+            LaunchedEffect(ui.loaded, ui.name, ui.setupDone) {
+                if (!bootstrapped) {
+                    val first = when {
+                        ui.shouldShowWelcome -> 0
+                        ui.shouldShowProfileSetup -> 1
+                        else -> 2
+                    }
+                    backStack.clear()
+                    backStack.add(first)
+                    step = first
+                    forwardAnim = true
+
+                    if (nameDraft.isBlank() && ui.name.isNotBlank()) {
+                        nameDraft = ui.name
+                    }
+
+                    bootstrapped = true
+                }
+            }
 
             fun navigate(to: Int) {
                 if (backStack.lastOrNull() == to) return
                 forwardAnim = true
+                backStack.add(to)
+                step = to
+            }
+
+            fun navigateRoot(to: Int) {
+                forwardAnim = true
+                backStack.clear()
                 backStack.add(to)
                 step = to
             }
@@ -89,49 +132,51 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // ✅ Системная кнопка "Назад" -> на предыдущий экран
             BackHandler(enabled = true) { goBack() }
 
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-
-                    // ✅ Ultra-smooth iOS-like transitions (без рывков)
-                    AnimatedStepHost(
-                        step = step,
-                        forward = forwardAnim
-                    ) { target ->
-
+                    AnimatedStepHost(step = step, forward = forwardAnim) { target ->
                         when (target) {
 
                             // 0 — Welcome (name)
                             0 -> {
                                 WelcomeNameScreen(
-                                    name = name,
-                                    onNameChange = { name = it },
-                                    onContinue = { navigate(1) }
+                                    name = nameDraft,
+                                    onNameChange = { nameDraft = it },
+                                    onContinue = {
+                                        val finalName = nameDraft.trim()
+                                        if (finalName.isNotBlank()) {
+                                            vm.saveName(finalName)
+                                            navigate(1)
+                                        }
+                                    }
                                 )
                             }
 
                             // 1 — Profile setup
                             1 -> {
                                 ProfileSetupScreen(
-                                    onContinue = { navigate(2) }
+                                    heightCm = heightCm,
+                                    weightKg = weightKg,
+                                    ageYears = ageYears,
+                                    onHeightChange = { heightCm = it },
+                                    onWeightChange = { weightKg = it },
+                                    onAgeChange = { ageYears = it },
+                                    onContinue = {
+                                        vm.saveProfile(heightCm, weightKg, ageYears)
+                                        navigateRoot(2)
+                                    }
                                 )
                             }
 
                             // 2 — Home
                             2 -> {
                                 HomeScreenNow(
-                                    onRunClick = {
-                                        // TODO: RUN logic
-                                    },
+                                    onRunClick = { /* TODO */ },
                                     onTileCalendar = { navigate(3) },
-                                    onTileHistory = {
-                                        // TODO
-                                    },
-                                    onTileAchievements = {
-                                        // TODO
-                                    },
+                                    onTileHistory = { /* TODO */ },
+                                    onTileAchievements = { /* TODO */ },
                                     onTopProfile = { navigate(4) },
                                     onTopSettings = { navigate(6) },
                                     onBottomTabChange = { tab ->
@@ -150,25 +195,21 @@ class MainActivity : ComponentActivity() {
                                     initialSelectedDate = selectedDate,
                                     onPickDay = { date -> selectedDate = date },
                                     onBack = { goBack() },
-                                    onPickMonth = {
-                                        // TODO
-                                    }
+                                    onPickMonth = { /* TODO */ }
                                 )
                             }
 
-                            // 4 — Profile
+                            // 4 — Profile (✅ avatar сохранение)
                             4 -> {
                                 ProfileScreen(
-                                    name = name,
-                                    onNameChange = { name = it },
+                                    name = savedName,
+                                    avatarUriString = savedAvatarUri,
+                                    onAvatarChange = { uri: String -> vm.saveAvatarUri(uri) },
+                                    onNameChange = { vm.saveName(it) },
                                     onBack = { goBack() },
-
                                     onPersonalDetails = { navigate(5) },
                                     onSettings = { navigate(6) },
-
-                                    // ✅ FIX: реально открываем Tips
                                     onTips = { navigate(9) },
-
                                     onFaq = { navigate(7) },
                                     onContact = { navigate(8) }
                                 )
@@ -177,18 +218,19 @@ class MainActivity : ComponentActivity() {
                             // 5 — Personal Details
                             5 -> {
                                 PersonalDetailsScreen(
-                                    name = name,
+                                    name = savedName,
                                     heightCm = heightCm,
                                     weightKg = weightKg,
                                     ageYears = ageYears,
-
-                                    onNameChange = { name = it },
+                                    onNameChange = { vm.saveName(it) },
                                     onHeightChange = { heightCm = it },
                                     onWeightChange = { weightKg = it },
                                     onAgeChange = { ageYears = it },
-
                                     onBack = { goBack() },
-                                    onSave = { goBack() }
+                                    onSave = {
+                                        vm.saveProfile(heightCm, weightKg, ageYears)
+                                        goBack()
+                                    }
                                 )
                             }
 
@@ -200,38 +242,19 @@ class MainActivity : ComponentActivity() {
                                     theme = theme,
                                     fontScale = fontScale,
                                     notificationsEnabled = notificationsEnabled,
-
                                     onLanguageChange = { language = it },
                                     onUnitsChange = { units = it },
                                     onThemeChange = { theme = it },
                                     onFontScaleChange = { fontScale = it },
                                     onNotificationsChange = { notificationsEnabled = it },
-
                                     onBack = { goBack() },
                                     onSave = { goBack() }
                                 )
                             }
 
-                            // 7 — FAQ
-                            7 -> {
-                                FaqScreen(
-                                    onBack = { goBack() }
-                                )
-                            }
-
-                            // 8 — Contact Us
-                            8 -> {
-                                ContactUsScreen(
-                                    onBack = { goBack() }
-                                )
-                            }
-
-                            // 9 — Tips & Tricks
-                            9 -> {
-                                TipsAndTricksScreen(
-                                    onBack = { goBack() }
-                                )
-                            }
+                            7 -> FaqScreen(onBack = { goBack() })
+                            8 -> ContactUsScreen(onBack = { goBack() })
+                            9 -> TipsAndTricksScreen(onBack = { goBack() })
                         }
                     }
                 }
@@ -241,14 +264,13 @@ class MainActivity : ComponentActivity() {
 }
 
 @OptIn(ExperimentalAnimationApi::class)
-@androidx.compose.runtime.Composable
+@Composable
 private fun AnimatedStepHost(
     step: Int,
     forward: Boolean,
-    content: @androidx.compose.runtime.Composable (Int) -> Unit
+    content: @Composable (Int) -> Unit
 ) {
     val iosEase = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
-
     val duration = 680
 
     AnimatedContent(
@@ -256,15 +278,11 @@ private fun AnimatedStepHost(
         transitionSpec = {
             val inSlide = slideInHorizontally(
                 animationSpec = tween(durationMillis = duration, easing = iosEase)
-            ) { full ->
-                if (forward) full / 6 else -full / 10
-            }
+            ) { full -> if (forward) full / 6 else -full / 10 }
 
             val outSlide = slideOutHorizontally(
                 animationSpec = tween(durationMillis = duration, easing = iosEase)
-            ) { full ->
-                if (forward) -full / 14 else full / 7
-            }
+            ) { full -> if (forward) -full / 14 else full / 7 }
 
             val inFade = fadeIn(
                 animationSpec = tween(durationMillis = duration, easing = iosEase),

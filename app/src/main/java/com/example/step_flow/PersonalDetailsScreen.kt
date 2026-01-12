@@ -11,7 +11,8 @@ import androidx.compose.material.icons.outlined.Height
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Scale
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -134,7 +135,7 @@ fun PersonalDetailsScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        // Optional block (в том же стиле, на будущее)
+        // Optional block
         Surface(
             shape = RoundedCornerShape(22.dp),
             color = Color.White,

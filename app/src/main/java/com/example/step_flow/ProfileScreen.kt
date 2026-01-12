@@ -1,11 +1,11 @@
 package com.example.step_flow
 
+import android.content.Intent
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -19,7 +19,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.ArrowForwardIos
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -46,6 +52,8 @@ import kotlin.math.sin
 fun ProfileScreen(
     modifier: Modifier = Modifier,
     name: String,
+    avatarUriString: String,                 // ✅ приходит из DataStore (ui.avatarUri)
+    onAvatarChange: (String) -> Unit,        // ✅ сохраняем в DataStore (vm.saveAvatarUri)
     onNameChange: (String) -> Unit,
     onBack: () -> Unit,
     onPersonalDetails: () -> Unit = {},
@@ -54,15 +62,27 @@ fun ProfileScreen(
     onFaq: () -> Unit = {},
     onContact: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val displayName = name.trim().ifBlank { "Maxgori" }
 
-    var avatarUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var showNameDialog by rememberSaveable { mutableStateOf(false) }
 
+    // ✅ Надёжный выбор изображения с persistable permission
     val pickAvatarLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        avatarUriString = uri?.toString()
+        if (uri != null) {
+            // persist read permission (если провайдер поддерживает)
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Throwable) {
+                // норм — не все провайдеры дают persistable, но строку uri сохраняем
+            }
+            onAvatarChange(uri.toString())
+        }
     }
 
     val avatarBitmap: ImageBitmap? by rememberAvatarBitmap(avatarUriString)
@@ -103,9 +123,8 @@ fun ProfileScreen(
         ProfileHero(
             avatarBitmap = avatarBitmap,
             onAvatarClick = {
-                pickAvatarLauncher.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                )
+                // ✅ image/*
+                pickAvatarLauncher.launch(arrayOf("image/*"))
             }
         )
 
@@ -190,7 +209,6 @@ private fun ProfileHero(
             .height(180.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // Анимированный градиентный хедер (как “волна”)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -200,15 +218,14 @@ private fun ProfileHero(
             AnimatedWaveGradient(
                 modifier = Modifier.fillMaxSize(),
                 colors = listOf(
-                    Color(0xFF19C5B7), // teal
-                    Color(0xFF0A1A1F), // deep
-                    Color(0xFFE53935)  // red
+                    Color(0xFF19C5B7),
+                    Color(0xFF0A1A1F),
+                    Color(0xFFE53935)
                 ),
                 durationMillis = 8500
             )
         }
 
-        // Avatar
         Box(
             modifier = Modifier
                 .size(92.dp)
@@ -233,11 +250,6 @@ private fun ProfileHero(
     }
 }
 
-/**
- * Переливающийся “волной” градиент:
- * - базовый линейный градиент плавно двигается
- * - сверху мягкая “подсветка” (radial) для объёма
- */
 @Composable
 private fun AnimatedWaveGradient(
     modifier: Modifier = Modifier,
@@ -260,7 +272,6 @@ private fun AnimatedWaveGradient(
             val h = size.height
             val base = (2f * PI.toFloat()) * t
 
-            // 1) Основной “ездящий” линейный градиент
             val cx = w * 0.5f + sin(base) * w * 0.35f
             val cy = h * 0.5f + cos(base * 0.9f) * h * 0.35f
 
@@ -275,7 +286,6 @@ private fun AnimatedWaveGradient(
                 )
             )
 
-            // 2) Мягкая “волна света” поверх
             val cx2 = w * 0.5f + sin(base * 1.25f + 1.2f) * w * 0.25f
             val cy2 = h * 0.35f + cos(base * 1.10f + 0.4f) * h * 0.35f
 
@@ -399,11 +409,11 @@ private data class SettingItem(
 // Load avatar bitmap (no Coil)
 // -----------------------------
 @Composable
-private fun rememberAvatarBitmap(uriString: String?): State<ImageBitmap?> {
+private fun rememberAvatarBitmap(uriString: String): State<ImageBitmap?> {
     val context = LocalContext.current
 
     return produceState<ImageBitmap?>(initialValue = null, key1 = uriString) {
-        if (uriString.isNullOrBlank()) {
+        if (uriString.isBlank()) {
             value = null
             return@produceState
         }

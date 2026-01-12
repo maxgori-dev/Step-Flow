@@ -10,10 +10,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +28,12 @@ import kotlin.math.roundToInt
 
 @Composable
 fun ProfileSetupScreen(
+    heightCm: String,
+    weightKg: String,
+    ageYears: String,
+    onHeightChange: (String) -> Unit,
+    onWeightChange: (String) -> Unit,
+    onAgeChange: (String) -> Unit,
     onContinue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -41,9 +43,9 @@ fun ProfileSetupScreen(
     val defaultHeight = 172
     val defaultAge = 34
 
-    var weight by remember { mutableIntStateOf(defaultWeight) }
-    var height by remember { mutableIntStateOf(defaultHeight) }
-    var age by remember { mutableIntStateOf(defaultAge) }
+    val weight = weightKg.toIntOrNull() ?: defaultWeight
+    val height = heightCm.toIntOrNull() ?: defaultHeight
+    val age = ageYears.toIntOrNull() ?: defaultAge
 
     Column(
         modifier = modifier
@@ -53,7 +55,6 @@ fun ProfileSetupScreen(
             .padding(top = 18.dp, bottom = 24.dp)
     ) {
 
-        // Header: title (left) + Reset (right)
         Box(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "Profile setup",
@@ -66,9 +67,9 @@ fun ProfileSetupScreen(
             ResetPill(
                 modifier = Modifier.align(Alignment.TopEnd),
                 onClick = {
-                    weight = defaultWeight
-                    height = defaultHeight
-                    age = defaultAge
+                    onWeightChange(defaultWeight.toString())
+                    onHeightChange(defaultHeight.toString())
+                    onAgeChange(defaultAge.toString())
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 }
             )
@@ -76,7 +77,6 @@ fun ProfileSetupScreen(
 
         Spacer(Modifier.height(14.dp))
 
-        // ✅ Instruction text (left, like Weekly Target)
         Text(
             text = "Select your current weight, height and age.",
             fontSize = 15.sp,
@@ -87,7 +87,6 @@ fun ProfileSetupScreen(
                 .padding(bottom = 22.dp)
         )
 
-        // Centered metrics
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -102,9 +101,9 @@ fun ProfileSetupScreen(
                     min = 40,
                     max = 120,
                     widthFraction = 0.82f
-                ) {
-                    if (it != weight) {
-                        weight = it
+                ) { newValue ->
+                    if (newValue != weight) {
+                        onWeightChange(newValue.toString())
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     }
                 }
@@ -121,9 +120,9 @@ fun ProfileSetupScreen(
                     min = 140,
                     max = 210,
                     widthFraction = 0.82f
-                ) {
-                    if (it != height) {
-                        height = it
+                ) { newValue ->
+                    if (newValue != height) {
+                        onHeightChange(newValue.toString())
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     }
                 }
@@ -140,9 +139,9 @@ fun ProfileSetupScreen(
                     min = 14,
                     max = 80,
                     widthFraction = 0.82f
-                ) {
-                    if (it != age) {
-                        age = it
+                ) { newValue ->
+                    if (newValue != age) {
+                        onAgeChange(newValue.toString())
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     }
                 }
@@ -265,7 +264,7 @@ private fun MinimalSlider(
 
     BoxWithConstraints(
         modifier = Modifier
-            .fillMaxWidth(widthFraction) // ✅ centered track width
+            .fillMaxWidth(widthFraction)
             .height(height)
             .clip(RoundedCornerShape(999.dp))
             .background(Color(0xFFF1F1F1))
@@ -286,7 +285,6 @@ private fun MinimalSlider(
             },
         contentAlignment = Alignment.Center
     ) {
-        // ✅ dots centered exactly in the slider (Y-axis)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -309,7 +307,6 @@ private fun MinimalSlider(
             }
         }
 
-        // thumb position
         val padPx = with(density) { horizontalPadding.toPx() }
         val thumbPx = with(density) { thumbSize.toPx() }
         val wPx = with(density) { maxWidth.toPx() }
