@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "699454169998",
+    "project_id": "step-flow-9a7e1",
+    "storage_bucket": "step-flow-9a7e1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:699454169998:android:978c2c9722261e9d3b3adf",
+        "android_client_info": {
+          "package_name": "com.example.step_flow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAgH2sdN7rS5d2aM_rj1sUyaaDxRUTnBP4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
