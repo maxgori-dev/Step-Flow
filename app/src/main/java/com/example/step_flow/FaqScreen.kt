@@ -2,20 +2,37 @@ package com.example.step_flow
 
 import android.os.Build
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.HelpOutline
@@ -23,7 +40,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -47,6 +73,8 @@ data class FaqItem(
     val question: String,
     val answer: String
 )
+
+private const val LOOP_MULTIPLIER = 400
 
 @Composable
 fun FaqScreen(
@@ -98,6 +126,9 @@ fun FaqScreen(
     val listState = rememberLazyListState()
     val haptics = LocalHapticFeedback.current
 
+    val totalCount = remember(faqs) { faqs.size * LOOP_MULTIPLIER }
+    val centerStart = remember(faqs) { (totalCount / 2) - ((totalCount / 2) % faqs.size) }
+
     var selectedIndex by remember { mutableIntStateOf(0) }
     var showAnswer by remember { mutableStateOf(false) }
 
@@ -105,8 +136,19 @@ fun FaqScreen(
         if (showAnswer) showAnswer = false else onBack()
     }
 
-    val centeredIndex by remember {
-        derivedStateOf { findCenteredIndex(listState) ?: selectedIndex }
+    LaunchedEffect(faqs.size) {
+        if (faqs.isNotEmpty()) listState.scrollToItem(centerStart)
+    }
+
+    fun realIndex(virtualIndex: Int): Int {
+        val n = faqs.size
+        if (n == 0) return 0
+        val m = virtualIndex % n
+        return if (m < 0) m + n else m
+    }
+
+    val centeredVirtualIndex by remember {
+        derivedStateOf { findCenteredIndex(listState) ?: listState.firstVisibleItemIndex }
     }
 
     LaunchedEffect(listState) {
@@ -114,13 +156,15 @@ fun FaqScreen(
             .filter { it != null }
             .distinctUntilChanged()
             .collect { idx ->
-                val safe = idx!!.coerceIn(0, faqs.lastIndex)
-                if (safe != selectedIndex) {
-                    selectedIndex = safe
+                val r = realIndex(idx!!)
+                if (r != selectedIndex) {
+                    selectedIndex = r
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 }
             }
     }
+
+    val snapFling = rememberSnapFlingBehavior(lazyListState = listState)
 
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }
@@ -129,24 +173,29 @@ fun FaqScreen(
             .collect {
                 val delta = computeCenteringDeltaPx(listState) ?: return@collect
                 if (abs(delta) > 1) {
-                    scope.launch {
-                        listState.animateScrollBy(
-                            delta.toFloat(),
-                            animationSpec = tween(420, easing = FastOutSlowInEasing)
-                        )
-                    }
+                    scope.launch { listState.animateScrollBy(delta.toFloat(), animationSpec = tween(320)) }
+                }
+                val idx = findCenteredIndex(listState) ?: return@collect
+                val n = faqs.size
+                if (n == 0) return@collect
+                if (idx < n || idx > totalCount - n) {
+                    val keepReal = realIndex(idx)
+                    val target = centerStart + keepReal
+                    scope.launch { listState.scrollToItem(target) }
                 }
             }
     }
 
-    Scaffold(containerColor = bg) { inner ->
+    Scaffold(
+        containerColor = bg,
+        contentWindowInsets = WindowInsets.safeDrawing
+    ) { inner ->
         Box(
             modifier = modifier
                 .fillMaxSize()
                 .background(bg)
                 .padding(inner)
         ) {
-            // Base content (blur when answer open)
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -166,7 +215,6 @@ fun FaqScreen(
 
                 Spacer(Modifier.height(18.dp))
 
-                // List area
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -174,27 +222,24 @@ fun FaqScreen(
                 ) {
                     LazyColumn(
                         state = listState,
+                        flingBehavior = snapFling,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
-                            top = 120.dp,
-                            bottom = 120.dp
-                        ),
+                        contentPadding = PaddingValues(top = 120.dp, bottom = 120.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        itemsIndexed(faqs) { index, item ->
-                            val isActive = index == centeredIndex
-
-                            val alphaTarget = if (isActive) 1f else 0.18f
-                            val scaleTarget = if (isActive) 1f else 0.93f
+                        items(totalCount) { vIndex ->
+                            val rIndex = realIndex(vIndex)
+                            val item = faqs[rIndex]
+                            val isActive = vIndex == centeredVirtualIndex
 
                             val a by animateFloatAsState(
-                                targetValue = alphaTarget,
-                                animationSpec = tween(380, easing = FastOutSlowInEasing),
+                                targetValue = if (isActive) 1f else 0.18f,
+                                animationSpec = tween(280),
                                 label = "pillAlpha"
                             )
                             val s by animateFloatAsState(
-                                targetValue = scaleTarget,
-                                animationSpec = tween(380, easing = FastOutSlowInEasing),
+                                targetValue = if (isActive) 1f else 0.93f,
+                                animationSpec = tween(280),
                                 label = "pillScale"
                             )
 
@@ -205,7 +250,7 @@ fun FaqScreen(
                                 scale = s,
                                 onClick = {
                                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    scope.launch { listState.animateScrollToItem(index) }
+                                    scope.launch { listState.animateScrollToItem(vIndex) }
                                 }
                             )
                         }
@@ -223,9 +268,7 @@ fun FaqScreen(
                     )
                 }
 
-                // Bottom button instead of swipe
                 AnswerButton(
-                    text = "View answer",
                     onClick = {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         showAnswer = true
@@ -235,7 +278,6 @@ fun FaqScreen(
                 Spacer(Modifier.height(18.dp))
             }
 
-            // Answer overlay
             AnswerOverlayFullscreen(
                 visible = showAnswer,
                 question = faqs[selectedIndex].question,
@@ -251,7 +293,6 @@ fun FaqScreen(
 
 @Composable
 private fun AnswerButton(
-    text: String,
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(999.dp)
@@ -260,6 +301,7 @@ private fun AnswerButton(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 22.dp)
+            .padding(bottom = 14.dp)
             .height(54.dp)
             .clip(shape)
             .background(Color(0xFF111111))
@@ -267,7 +309,7 @@ private fun AnswerButton(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = text,
+            text = "View answer",
             color = Color.White,
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
@@ -285,7 +327,6 @@ private fun FaqPillFullscreen(
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(999.dp)
-
     val bg = if (active) Color(0xFF111111) else Color(0xFFF1F3F7).copy(alpha = 0.70f)
     val fg = if (active) Color.White else Color(0xFF111111).copy(alpha = 0.75f)
 
@@ -293,11 +334,7 @@ private fun FaqPillFullscreen(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 26.dp)
-            .graphicsLayer(
-                alpha = alpha,
-                scaleX = scale,
-                scaleY = scale
-            )
+            .graphicsLayer(alpha = alpha, scaleX = scale, scaleY = scale)
             .clip(shape)
             .background(bg)
             .clickable(onClick = onClick)
@@ -325,7 +362,7 @@ private fun AnswerOverlayFullscreen(
 
     val progress by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(320, easing = FastOutSlowInEasing),
+        animationSpec = tween(320),
         label = "overlayProgress"
     )
 
@@ -334,7 +371,6 @@ private fun AnswerOverlayFullscreen(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            // swipe down to close (оставил, это логично и удобно)
             .pointerInput(visible) {
                 val thresholdPx = with(density) { 80.dp.toPx() }
                 var totalDrag = 0f
@@ -349,6 +385,7 @@ private fun AnswerOverlayFullscreen(
                     }
                 )
             }
+            .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
         val heightPx = with(density) { maxHeight.toPx() }
         val offsetY = (1f - progress) * heightPx
@@ -358,7 +395,6 @@ private fun AnswerOverlayFullscreen(
                 .fillMaxSize()
                 .graphicsLayer { translationY = offsetY }
         ) {
-            // scrim
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -375,6 +411,7 @@ private fun AnswerOverlayFullscreen(
                     .background(Color.White.copy(alpha = 0.86f))
                     .padding(horizontal = 18.dp, vertical = 16.dp)
                     .statusBarsPadding()
+                    .imePadding()
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -419,14 +456,20 @@ private fun AnswerOverlayFullscreen(
 
                 Spacer(Modifier.height(12.dp))
 
-                Text(
-                    text = answer,
-                    color = Color(0xFF6F747C),
-                    fontSize = 15.sp,
-                    lineHeight = 22.sp
-                )
-
-                Spacer(Modifier.height(18.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = answer,
+                        color = Color(0xFF6F747C),
+                        fontSize = 15.sp,
+                        lineHeight = 22.sp
+                    )
+                    Spacer(Modifier.height(18.dp))
+                }
 
                 Text(
                     text = "Swipe down to close",
@@ -451,7 +494,6 @@ private fun computeCenteringDeltaPx(state: LazyListState): Int? {
     val layout = state.layoutInfo
     val items = layout.visibleItemsInfo
     if (items.isEmpty()) return null
-
     val viewportCenter = (layout.viewportStartOffset + layout.viewportEndOffset) / 2
     val closest = items.minByOrNull { it.distanceToCenter(viewportCenter) } ?: return null
     val itemCenter = closest.offset + closest.size / 2
@@ -466,15 +508,11 @@ private fun LazyListItemInfo.distanceToCenter(viewportCenter: Int): Int {
 @Composable
 private fun Modifier.blurIfAvailable(enabled: Boolean, radiusPx: Float): Modifier {
     if (!enabled) return this
-
     val radiusDp = with(LocalDensity.current) { radiusPx.toDp() }
-
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         this.blur(
             radius = radiusDp,
             edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded
         )
-    } else {
-        this
-    }
+    } else this
 }

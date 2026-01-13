@@ -1,21 +1,47 @@
 package com.example.step_flow
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Height
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Scale
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -36,68 +62,92 @@ fun PersonalDetailsScreen(
     onSave: () -> Unit
 ) {
     val bg = Color(0xFFF5F6F8)
+    val title = Color(0xFF111111)
+    val hint = Color(0xFF6F747C)
+
+    val insets = WindowInsets.safeDrawing.asPaddingValues()
+    val layoutDir = LocalLayoutDirection.current
+
+    val startPad = insets.calculateStartPadding(layoutDir)
+    val endPad = insets.calculateEndPadding(layoutDir)
+    val topPad = insets.calculateTopPadding()
+    val bottomPad = insets.calculateBottomPadding()
+
+    val minDim = 390.dp
+    val uiScale = 1f
+
+    val cardShape = RoundedCornerShape(22.dp * uiScale)
+    val fieldShape = RoundedCornerShape(16.dp * uiScale)
+    val buttonShape = RoundedCornerShape(18.dp * uiScale)
+    val buttonH = (54.dp * uiScale).coerceIn(48.dp, 60.dp)
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(bg)
-            .padding(horizontal = 16.dp)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(start = 16.dp + startPad, end = 16.dp + endPad)
+            .imePadding()
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
     ) {
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(8.dp * uiScale))
 
-        // Top bar
-        Row(
+        androidx.compose.foundation.layout.Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(vertical = 8.dp * uiScale),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
+            IconButton(onClick = onBack, modifier = Modifier.size(44.dp * uiScale)) {
                 Icon(
                     imageVector = Icons.Outlined.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color(0xFF111111)
+                    tint = title,
+                    modifier = Modifier.size(22.dp * uiScale)
                 )
             }
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.height(0.dp))
             Text(
                 text = "Personal Details",
-                fontSize = 18.sp,
+                fontSize = (18.sp * uiScale),
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF111111)
+                color = title
             )
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(10.dp * uiScale))
 
         Text(
             text = "Your profile data",
-            fontSize = 14.sp,
-            color = Color(0xFF6F747C),
-            modifier = Modifier.padding(start = 6.dp, bottom = 12.dp)
+            fontSize = (14.sp * uiScale),
+            color = hint,
+            modifier = Modifier.padding(start = 6.dp * uiScale, bottom = 12.dp * uiScale)
         )
 
-        // Card with fields
         Surface(
-            shape = RoundedCornerShape(22.dp),
+            shape = cardShape,
             color = Color.White,
-            shadowElevation = 6.dp,
+            shadowElevation = 6.dp * uiScale,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(Modifier.padding(16.dp)) {
-
+            Column(Modifier.padding(16.dp * uiScale)) {
                 DetailField(
+                    scale = uiScale,
+                    shape = fieldShape,
                     title = "Name",
                     value = name,
                     placeholder = "Enter your name",
                     leading = { Icon(Icons.Outlined.Person, null) },
                     keyboardType = KeyboardType.Text,
-                    onValueChange = { onNameChange(it) }
+                    onValueChange = onNameChange
                 )
 
-                DividerSoft()
+                DividerSoft(scale = uiScale)
 
                 DetailField(
+                    scale = uiScale,
+                    shape = fieldShape,
                     title = "Height",
                     value = heightCm,
                     placeholder = "e.g. 182",
@@ -107,9 +157,11 @@ fun PersonalDetailsScreen(
                     onValueChange = { onHeightChange(it.onlyDigits(3)) }
                 )
 
-                DividerSoft()
+                DividerSoft(scale = uiScale)
 
                 DetailField(
+                    scale = uiScale,
+                    shape = fieldShape,
                     title = "Weight",
                     value = weightKg,
                     placeholder = "e.g. 78",
@@ -119,9 +171,11 @@ fun PersonalDetailsScreen(
                     onValueChange = { onWeightChange(it.onlyDigits(3)) }
                 )
 
-                DividerSoft()
+                DividerSoft(scale = uiScale)
 
                 DetailField(
+                    scale = uiScale,
+                    shape = fieldShape,
                     title = "Age",
                     value = ageYears,
                     placeholder = "e.g. 20",
@@ -133,59 +187,34 @@ fun PersonalDetailsScreen(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp * uiScale))
 
-        // Optional block
-        Surface(
-            shape = RoundedCornerShape(22.dp),
-            color = Color.White,
-            shadowElevation = 4.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(Modifier.padding(16.dp)) {
-                Text(
-                    text = "Coming next",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF111111)
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = "• Goals (fat loss / endurance / strength)\n• Activity level\n• Units (cm/kg ↔ ft/lb)",
-                    fontSize = 13.sp,
-                    color = Color(0xFF6F747C),
-                    lineHeight = 18.sp
-                )
-            }
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        // Save button
         Button(
             onClick = onSave,
-            shape = RoundedCornerShape(18.dp),
+            shape = buttonShape,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(54.dp),
+                .height(buttonH),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF111111),
+                containerColor = title,
                 contentColor = Color.White
             )
         ) {
             Text(
                 text = "Save",
-                fontSize = 16.sp,
+                fontSize = (16.sp * uiScale),
                 fontWeight = FontWeight.SemiBold
             )
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp * uiScale + bottomPad))
     }
 }
 
 @Composable
 private fun DetailField(
+    scale: Float,
+    shape: RoundedCornerShape,
     title: String,
     value: String,
     placeholder: String,
@@ -197,10 +226,10 @@ private fun DetailField(
     Column(Modifier.fillMaxWidth()) {
         Text(
             text = title.uppercase(),
-            fontSize = 12.sp,
+            fontSize = (12.sp * scale),
             fontWeight = FontWeight.Medium,
             color = Color(0xFF8E9097),
-            modifier = Modifier.padding(start = 2.dp, bottom = 8.dp)
+            modifier = Modifier.padding(start = 2.dp * scale, bottom = 8.dp * scale)
         )
 
         OutlinedTextField(
@@ -217,14 +246,14 @@ private fun DetailField(
                     Text(
                         text = suffix,
                         color = Color(0xFF8E9097),
-                        fontSize = 13.sp,
+                        fontSize = (13.sp * scale),
                         fontWeight = FontWeight.Medium
                     )
                 }
             },
             placeholder = { Text(placeholder) },
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            shape = RoundedCornerShape(16.dp),
+            shape = shape,
             colors = OutlinedTextFieldDefaults.colors(
                 unfocusedContainerColor = Color(0xFFF7F8FB),
                 focusedContainerColor = Color(0xFFF7F8FB),
@@ -238,12 +267,12 @@ private fun DetailField(
 }
 
 @Composable
-private fun DividerSoft() {
+private fun DividerSoft(scale: Float) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 14.dp)
-            .height(1.dp)
+            .padding(vertical = 14.dp * scale)
+            .height((1.dp * scale).coerceAtLeast(1.dp))
             .background(Color(0xFFE9EAEE))
     )
 }

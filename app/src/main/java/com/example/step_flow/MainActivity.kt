@@ -37,7 +37,6 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.core.content.ContextCompat
@@ -83,13 +82,13 @@ class MainActivity : AppCompatActivity() {
             }
 
             // -----------------------------
-            // Settings (DataStore) — глобально для всего приложения
+            // Settings (DataStore) — global for the whole app
             // -----------------------------
             val settingsRepo = remember { SettingsRepository(applicationContext) }
             val settings by settingsRepo.flow.collectAsStateWithLifecycle(initialValue = SettingsState())
             val scope = rememberCoroutineScope()
 
-            // ✅ Глобальный fontScale
+            // Global fontScale
             val baseDensity = LocalDensity.current
             val scaledDensity = remember(settings.fontScale, baseDensity) {
                 Density(
@@ -98,7 +97,7 @@ class MainActivity : AppCompatActivity() {
                 )
             }
 
-            // ✅ Глобальная тема
+            // Global theme
             val dark = when (settings.theme) {
                 AppTheme.System -> isSystemInDarkTheme()
                 AppTheme.Light -> false
@@ -295,7 +294,6 @@ class MainActivity : AppCompatActivity() {
                                         fontScale = settings.fontScale,
                                         notificationsEnabled = settings.notificationsEnabled,
 
-                                        // ✅ Язык: сохраняем в DataStore, затем применяем 1 раз (без цикла)
                                         onLanguageChange = { v ->
                                             scope.launch {
                                                 settingsRepo.setLanguage(v)
@@ -334,6 +332,7 @@ class MainActivity : AppCompatActivity() {
                                         weightKg = w,
                                         heightCm = h,
                                         ageYears = a,
+                                        notificationsEnabled = settings.notificationsEnabled, // ✅ FIX
                                         isUploading = uploadState is UploadState.Loading,
                                         onFinish = { result ->
                                             vm.saveRunToFirebase(

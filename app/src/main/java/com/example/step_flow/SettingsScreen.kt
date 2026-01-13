@@ -1,5 +1,11 @@
 package com.example.step_flow
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -43,6 +49,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,9 +58,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 
 @Composable
 fun SettingsScreen(
@@ -72,12 +81,62 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onSave: () -> Unit
 ) {
+    val context = LocalContext.current
+
     val bg = Color(0xFFF5F6F8)
     val title = Color(0xFF111111)
     val hint = Color(0xFF6F747C)
 
-    // ✅ язык меняем "черновиком", реально применяем только на Save (без мерцания/recreate-loop)
+    // Language is edited as a draft and applied only on Save (avoids flicker / recreate loops)
     var languageDraft by remember(language) { mutableStateOf(language) }
+
+    // Android 13+ notification permission requester
+    val notifPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        onNotificationsChange(granted)
+        if (!granted) {
+            Toast.makeText(
+                context,
+                "Notification permission denied — notifications are turned off",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    fun setNotificationsEnabledSafely(enable: Boolean) {
+        if (!enable) {
+            onNotificationsChange(false)
+            return
+        }
+
+        // enable == true
+        if (Build.VERSION.SDK_INT >= 33) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (granted) {
+                onNotificationsChange(true)
+            } else {
+                notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        } else {
+            onNotificationsChange(true)
+        }
+    }
+
+    // If user enabled notifications, but permission is revoked in system settings — keep UI in sync
+    LaunchedEffect(notificationsEnabled) {
+        if (notificationsEnabled && Build.VERSION.SDK_INT >= 33) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) onNotificationsChange(false)
+        }
+    }
 
     BoxWithConstraints(
         modifier = modifier
@@ -85,7 +144,7 @@ fun SettingsScreen(
             .background(bg)
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        // ✅ без min() импортов → без "overload ambiguity"
+        // no min() import -> avoids overload ambiguity
         val minDim = if (maxWidth < maxHeight) maxWidth else maxHeight
         val uiScale = (minDim / 390.dp).coerceIn(0.82f, 1.20f)
 
@@ -266,7 +325,7 @@ fun SettingsScreen(
                             subtitle = "Enable reminders & alerts",
                             icon = Icons.Outlined.Notifications,
                             checked = notificationsEnabled,
-                            onCheckedChange = onNotificationsChange
+                            onCheckedChange = { checked -> setNotificationsEnabledSafely(checked) }
                         )
                     }
                 }

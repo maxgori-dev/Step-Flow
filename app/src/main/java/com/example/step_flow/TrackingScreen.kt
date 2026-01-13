@@ -10,10 +10,43 @@ import android.os.Build
 import android.os.IBinder
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,7 +77,12 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.*
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapEffect
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
@@ -90,6 +128,7 @@ fun TrackingScreen(
     weightKg: Double,
     heightCm: Double,
     ageYears: Int,
+    notificationsEnabled: Boolean, // ✅ ADDED
     isUploading: Boolean,
     onFinish: (RunResult) -> Unit,
     onBack: () -> Unit
@@ -145,7 +184,7 @@ fun TrackingScreen(
     val steps by trackingService?.steps?.collectAsStateWithLifecycle()
         ?: remember { mutableIntStateOf(0) }
     val pathPoints by trackingService?.pathPoints?.collectAsStateWithLifecycle()
-        ?: remember { mutableStateOf(emptyList()) }
+        ?: remember { mutableStateOf(emptyList<LatLng>()) }
     val speedKmh by trackingService?.currentSpeedKmh?.collectAsStateWithLifecycle()
         ?: remember { mutableFloatStateOf(0f) }
 
@@ -181,7 +220,14 @@ fun TrackingScreen(
                 }
                 path = file.absolutePath
             }
+
             trackingService?.stopService()
+
+            // ✅ SHOW NOTIFICATION AFTER FINISH (only if enabled in Settings)
+            if (notificationsEnabled) {
+                NotificationHelper.showRunFinished(context)
+            }
+
             onFinish(
                 RunResult(
                     distanceMeters = distance,
@@ -266,7 +312,7 @@ fun TrackingScreen(
                     }
                 }
 
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     AutoSizeText(
                         text = formattedTime,
                         maxFontSize = timeSize,
@@ -517,7 +563,7 @@ private fun GlassActionButtonExact(
 
 @Composable
 private fun StatItemGlassExact(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
         AutoSizeText(
             text = value,
             maxFontSize = 22.sp,
