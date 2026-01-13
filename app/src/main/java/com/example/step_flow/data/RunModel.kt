@@ -9,5 +9,5 @@ data class RunModel(
     val calories: Float = 0f,
     val avgSpeedKmh: Float = 0f,
     val steps: Int = 0,
-    val mapImageUrl: String = "" // Ссылка на картинку
+    val mapImageUrl: String = "" 
 )

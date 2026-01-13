@@ -43,7 +43,7 @@ data class MainUiState(
     val hasProfile: Boolean get() =
         heightCm.isNotBlank() && weightKg.isNotBlank() && ageYears.isNotBlank()
 
-    // onboarding rules
+    
     val shouldShowWelcome: Boolean get() = !hasName
     val shouldShowProfileSetup: Boolean get() = hasName && !setupDone
 }
@@ -67,7 +67,7 @@ class MainViewModel @Inject constructor(
         val sharedPrefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         var id = sharedPrefs.getString("user_id", null)
         if (id == null) {
-            id = UUID.randomUUID().toString() // Генерируем новый ID
+            id = UUID.randomUUID().toString() 
             sharedPrefs.edit().putString("user_id", id).apply()
         }
         id!!
@@ -75,7 +75,7 @@ class MainViewModel @Inject constructor(
 
     private val loadedFlag = MutableStateFlow(false)
 
-    // ✅ собираем prefs в 2 шага, чтобы НЕ использовать combine на 6+ flows
+    
     private val prefsFlow: StateFlow<PrefsSnapshot> =
         combine(
             prefs.nameFlow,
@@ -90,7 +90,7 @@ class MainViewModel @Inject constructor(
                 weightKg = w,
                 ageYears = a,
                 setupDone = done,
-                avatarUri = "" // set on next combine
+                avatarUri = "" 
             )
         }.combine(prefs.avatarUriFlow) { snap, avatar ->
             snap.copy(avatarUri = avatar)
@@ -132,25 +132,25 @@ class MainViewModel @Inject constructor(
             )
         )
 
-    // ✅ НОВОЕ: Поток списка забегов из Firebase
+    
     val runsFlow: StateFlow<List<RunModel>> = callbackFlow {
-        // Подписка на коллекцию "runs", сортировка по дате (новые сверху)
+        
         val listener = FirebaseFirestore.getInstance()
             .collection("runs")
             .whereEqualTo("userId", currentUserId)
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error) // Закрываем поток при ошибке
+                    close(error) 
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
-                    // Преобразуем документы в объекты RunModel
+                    
                     val runs = snapshot.toObjects(RunModel::class.java)
-                    trySend(runs) // Отправляем список в поток
+                    trySend(runs) 
                 }
             }
-        // Отписываемся, когда ViewModel очищается
+        
         awaitClose { listener.remove() }
     }.stateIn(
         scope = viewModelScope,
@@ -165,7 +165,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    // Храним цели: Шаги, Минуты, Калории
+    
     private val _goals = MutableStateFlow(Triple(6000, 45, 500))
     val goals = _goals.asStateFlow()
 
@@ -173,7 +173,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             prefs.awaitFirstLoad()
             loadedFlag.value = true
-            loadGoals() // Загружаем цели при старте
+            loadGoals() 
         }
     }
 
@@ -217,7 +217,7 @@ class MainViewModel @Inject constructor(
         _uploadState.value = UploadState.Idle
     }
 
-    // ✅ ГЛАВНАЯ ФУНКЦИЯ СОХРАНЕНИЯ
+    
     fun saveRunToFirebase(
         distanceMeters: Float,
         durationSeconds: Long,
@@ -231,19 +231,19 @@ class MainViewModel @Inject constructor(
             try {
                 var imageUrl = ""
 
-                // 1. Если есть скриншот, грузим его в Firebase Storage
+                
                 if (localScreenshotPath != null) {
                     val file = Uri.fromFile(File(localScreenshotPath))
                     val storageRef = FirebaseStorage.getInstance().reference
                         .child("runs_maps/${System.currentTimeMillis()}_${file.lastPathSegment}")
 
-                    // Загрузка
+                    
                     storageRef.putFile(file).await()
-                    // Получение ссылки
+                    
                     imageUrl = storageRef.downloadUrl.await().toString()
                 }
 
-                // 2. Создаем модель забега
+                
                 val runData = RunModel(
                     userId = currentUserId,
                     timestamp = System.currentTimeMillis(),
@@ -255,7 +255,7 @@ class MainViewModel @Inject constructor(
                     mapImageUrl = imageUrl
                 )
 
-                // 3. Сохраняем в Firestore
+                
                 FirebaseFirestore.getInstance()
                     .collection("runs")
                     .add(runData)

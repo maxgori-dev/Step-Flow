@@ -4,10 +4,7 @@ import androidx.compose.ui.unit.sp
 import java.time.format.TextStyle
 import kotlin.math.roundToInt
 
-/**
- * Подбор fontSize под ширину (binary search).
- * Работает стабильно и реально уменьшает текст при длинных именах.
- */
+
 private fun findBestFontSizeSp(
     text: String,
     maxWidthPx: Float,

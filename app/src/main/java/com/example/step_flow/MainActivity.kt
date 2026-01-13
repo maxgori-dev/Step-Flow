@@ -20,6 +20,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
@@ -82,14 +83,14 @@ class MainActivity : AppCompatActivity() {
                 return@setContent
             }
 
-            // -----------------------------
-            // Settings (DataStore) — глобально для всего приложения
-            // -----------------------------
+            
+            
+            
             val settingsRepo = remember { SettingsRepository(applicationContext) }
             val settings by settingsRepo.flow.collectAsStateWithLifecycle(initialValue = SettingsState())
             val scope = rememberCoroutineScope()
 
-            // ✅ Глобальный fontScale
+            
             val baseDensity = LocalDensity.current
             val scaledDensity = remember(settings.fontScale, baseDensity) {
                 Density(
@@ -98,7 +99,7 @@ class MainActivity : AppCompatActivity() {
                 )
             }
 
-            // ✅ Глобальная тема
+            
             val dark = when (settings.theme) {
                 AppTheme.System -> isSystemInDarkTheme()
                 AppTheme.Light -> false
@@ -106,8 +107,12 @@ class MainActivity : AppCompatActivity() {
             }
 
             CompositionLocalProvider(LocalDensity provides scaledDensity) {
-                MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
-                    Surface {
+                StepFlowTheme(darkTheme = dark) {
+                    Surface (
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background) {
+
+
 
                         val savedName = ui.name
                         val savedAvatarUri = ui.avatarUri
@@ -295,7 +300,7 @@ class MainActivity : AppCompatActivity() {
                                         fontScale = settings.fontScale,
                                         notificationsEnabled = settings.notificationsEnabled,
 
-                                        // ✅ Язык: сохраняем в DataStore, затем применяем 1 раз (без цикла)
+                                        
                                         onLanguageChange = { v ->
                                             scope.launch {
                                                 settingsRepo.setLanguage(v)

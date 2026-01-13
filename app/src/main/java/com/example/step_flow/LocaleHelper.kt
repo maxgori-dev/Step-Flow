@@ -13,12 +13,12 @@ fun applyAppLanguage(language: AppLanguage) {
     val tag = language.toTagOrNull()
 
     val locales = if (tag == null) {
-        LocaleListCompat.getEmptyLocaleList() // System
+        LocaleListCompat.getEmptyLocaleList() 
     } else {
         LocaleListCompat.forLanguageTags(tag)
     }
 
-    // ✅ Guard: не перезапускаем Activity, если уже выставлено то же самое
+    
     val currentTags = AppCompatDelegate.getApplicationLocales().toLanguageTags()
     val desiredTags = locales.toLanguageTags()
     if (currentTags != desiredTags) {

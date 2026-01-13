@@ -37,10 +37,13 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -54,6 +57,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.min
 
 @Composable
 fun SettingsScreen(
@@ -61,7 +65,7 @@ fun SettingsScreen(
     language: AppLanguage,
     units: Units,
     theme: AppTheme,
-    fontScale: Float, // 0.85..1.25
+    fontScale: Float, 
     notificationsEnabled: Boolean,
     onLanguageChange: (AppLanguage) -> Unit,
     onUnitsChange: (Units) -> Unit,
@@ -72,11 +76,11 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onSave: () -> Unit
 ) {
-    val bg = Color(0xFFF5F6F8)
-    val title = Color(0xFF111111)
-    val hint = Color(0xFF6F747C)
+    
+    val bg = MaterialTheme.colorScheme.background
+    val titleColor = MaterialTheme.colorScheme.onBackground
+    val hintColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    // ✅ язык меняем "черновиком", реально применяем только на Save (без мерцания/recreate-loop)
     var languageDraft by remember(language) { mutableStateOf(language) }
 
     BoxWithConstraints(
@@ -85,7 +89,6 @@ fun SettingsScreen(
             .background(bg)
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        // ✅ без min() импортов → без "overload ambiguity"
         val minDim = if (maxWidth < maxHeight) maxWidth else maxHeight
         val uiScale = (minDim / 390.dp).coerceIn(0.82f, 1.20f)
 
@@ -114,8 +117,9 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .height(buttonH),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF111111),
-                            contentColor = Color.White
+                            
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
                         Text(
@@ -150,7 +154,7 @@ fun SettingsScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                                 contentDescription = "Back",
-                                tint = title,
+                                tint = titleColor, 
                                 modifier = Modifier.size(22.dp * uiScale)
                             )
                         }
@@ -159,7 +163,7 @@ fun SettingsScreen(
                             text = "Settings",
                             fontSize = (20.sp * uiScale),
                             fontWeight = FontWeight.SemiBold,
-                            color = title
+                            color = titleColor 
                         )
                     }
                 }
@@ -170,7 +174,7 @@ fun SettingsScreen(
                     Text(
                         text = "App preferences",
                         fontSize = (14.sp * uiScale),
-                        color = hint,
+                        color = hintColor, 
                         modifier = Modifier.padding(start = 6.dp * uiScale, bottom = 12.dp * uiScale)
                     )
                 }
@@ -277,13 +281,17 @@ fun SettingsScreen(
     }
 }
 
+
+
+
+
 @Composable
 private fun SectionTitle(text: String, scale: Float) {
     Text(
         text = text,
         fontSize = (12.sp * scale),
         fontWeight = FontWeight.Medium,
-        color = Color(0xFF8E9097),
+        color = MaterialTheme.colorScheme.onSurfaceVariant, 
         modifier = Modifier.padding(start = 8.dp * scale, bottom = 8.dp * scale)
     )
 }
@@ -295,7 +303,7 @@ private fun SettingsCard(
 ) {
     Surface(
         shape = RoundedCornerShape(22.dp * scale),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface, 
         shadowElevation = 6.dp * scale,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -318,28 +326,29 @@ private fun SettingsActionRow(
             .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Color(0xFF111111), modifier = Modifier.size(22.dp * scale))
+        
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp * scale))
         Spacer(Modifier.width(14.dp * scale))
 
         Column(Modifier.weight(1f)) {
             Text(
                 text = title,
                 fontSize = (16.sp * scale),
-                color = Color(0xFF111111),
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Medium
             )
             Spacer(Modifier.height(2.dp * scale))
             Text(
                 text = subtitle,
                 fontSize = (13.sp * scale),
-                color = Color(0xFF6F747C)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
         Icon(
             imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
             contentDescription = null,
-            tint = Color(0xFFB0B2B8),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(18.dp * scale)
         )
     }
@@ -365,46 +374,47 @@ private fun <T> SettingsMenuRow(
             .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Color(0xFF111111), modifier = Modifier.size(22.dp * scale))
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp * scale))
         Spacer(Modifier.width(14.dp * scale))
 
         Column(Modifier.weight(1f)) {
             Text(
                 text = title,
                 fontSize = (16.sp * scale),
-                color = Color(0xFF111111),
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Medium
             )
             Spacer(Modifier.height(2.dp * scale))
             Text(
                 text = subtitle,
                 fontSize = (13.sp * scale),
-                color = Color(0xFF6F747C)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
         Text(
             text = valueText,
             fontSize = (14.sp * scale),
-            color = Color(0xFF8E9097),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium
         )
         Spacer(Modifier.width(10.dp * scale))
         Icon(
             imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
             contentDescription = null,
-            tint = Color(0xFFB0B2B8),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(18.dp * scale)
         )
     }
 
     DropdownMenu(
         expanded = expanded,
-        onDismissRequest = { expanded = false }
+        onDismissRequest = { expanded = false },
+        containerColor = MaterialTheme.colorScheme.surface 
     ) {
         options.forEach { item ->
             DropdownMenuItem(
-                text = { Text(optionLabel(item)) },
+                text = { Text(optionLabel(item), color = MaterialTheme.colorScheme.onSurface) },
                 onClick = {
                     onSelect(item)
                     expanded = false
@@ -429,27 +439,32 @@ private fun SettingsSwitchRow(
             .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Color(0xFF111111), modifier = Modifier.size(22.dp * scale))
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp * scale))
         Spacer(Modifier.width(14.dp * scale))
 
         Column(Modifier.weight(1f)) {
             Text(
                 text = title,
                 fontSize = (16.sp * scale),
-                color = Color(0xFF111111),
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Medium
             )
             Spacer(Modifier.height(2.dp * scale))
             Text(
                 text = subtitle,
                 fontSize = (13.sp * scale),
-                color = Color(0xFF6F747C)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary
+            )
         )
     }
 }
@@ -471,28 +486,28 @@ private fun SettingsSliderRow(
             .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = Color(0xFF111111), modifier = Modifier.size(22.dp * scale))
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp * scale))
             Spacer(Modifier.width(14.dp * scale))
 
             Column(Modifier.weight(1f)) {
                 Text(
                     text = title,
                     fontSize = (16.sp * scale),
-                    color = Color(0xFF111111),
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(Modifier.height(2.dp * scale))
                 Text(
                     text = subtitle,
                     fontSize = (13.sp * scale),
-                    color = Color(0xFF6F747C)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             Text(
                 text = valueLabel,
                 fontSize = (14.sp * scale),
-                color = Color(0xFF8E9097),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -502,7 +517,12 @@ private fun SettingsSliderRow(
         Slider(
             value = value.coerceIn(range.start, range.endInclusive),
             onValueChange = { onChange(it.coerceIn(range.start, range.endInclusive)) },
-            valueRange = range
+            valueRange = range,
+            colors = SliderDefaults.colors(
+                
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary
+            )
         )
     }
 }
@@ -514,6 +534,6 @@ private fun DividerSoft(scale: Float) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp * scale)
             .height((1.dp * scale).coerceAtLeast(1.dp))
-            .background(Color(0xFFE9EAEE))
+            .background(MaterialTheme.colorScheme.secondaryContainer) 
     )
 }

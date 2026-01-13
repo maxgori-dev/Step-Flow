@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Height
 import androidx.compose.material.icons.outlined.Person
@@ -35,7 +35,9 @@ fun PersonalDetailsScreen(
     onBack: () -> Unit,
     onSave: () -> Unit
 ) {
-    val bg = Color(0xFFF5F6F8)
+    val bg = MaterialTheme.colorScheme.background
+    val textPrimary = MaterialTheme.colorScheme.onBackground
+    val textSecondary = MaterialTheme.colorScheme.onSurfaceVariant
 
     Column(
         modifier = modifier
@@ -45,7 +47,6 @@ fun PersonalDetailsScreen(
     ) {
         Spacer(Modifier.height(8.dp))
 
-        // Top bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -54,9 +55,9 @@ fun PersonalDetailsScreen(
         ) {
             IconButton(onClick = onBack) {
                 Icon(
-                    imageVector = Icons.Outlined.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color(0xFF111111)
+                    tint = textPrimary
                 )
             }
             Spacer(Modifier.width(6.dp))
@@ -64,7 +65,7 @@ fun PersonalDetailsScreen(
                 text = "Personal Details",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF111111)
+                color = textPrimary
             )
         }
 
@@ -73,14 +74,13 @@ fun PersonalDetailsScreen(
         Text(
             text = "Your profile data",
             fontSize = 14.sp,
-            color = Color(0xFF6F747C),
+            color = textSecondary,
             modifier = Modifier.padding(start = 6.dp, bottom = 12.dp)
         )
 
-        // Card with fields
         Surface(
             shape = RoundedCornerShape(22.dp),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.surface,
             shadowElevation = 6.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -135,10 +135,9 @@ fun PersonalDetailsScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        // Optional block
         Surface(
             shape = RoundedCornerShape(22.dp),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.surface,
             shadowElevation = 4.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -147,13 +146,13 @@ fun PersonalDetailsScreen(
                     text = "Coming next",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF111111)
+                    color = textPrimary
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = "• Goals (fat loss / endurance / strength)\n• Activity level\n• Units (cm/kg ↔ ft/lb)",
                     fontSize = 13.sp,
-                    color = Color(0xFF6F747C),
+                    color = textSecondary,
                     lineHeight = 18.sp
                 )
             }
@@ -161,7 +160,6 @@ fun PersonalDetailsScreen(
 
         Spacer(Modifier.weight(1f))
 
-        // Save button
         Button(
             onClick = onSave,
             shape = RoundedCornerShape(18.dp),
@@ -169,8 +167,8 @@ fun PersonalDetailsScreen(
                 .fillMaxWidth()
                 .height(54.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF111111),
-                contentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             )
         ) {
             Text(
@@ -194,12 +192,17 @@ private fun DetailField(
     keyboardType: KeyboardType,
     onValueChange: (String) -> Unit
 ) {
+    val fieldBg = MaterialTheme.colorScheme.background
+    val fieldBorder = MaterialTheme.colorScheme.secondaryContainer
+    val primary = MaterialTheme.colorScheme.primary
+    val textLabel = MaterialTheme.colorScheme.onSurfaceVariant
+
     Column(Modifier.fillMaxWidth()) {
         Text(
             text = title.uppercase(),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF8E9097),
+            color = textLabel,
             modifier = Modifier.padding(start = 2.dp, bottom = 8.dp)
         )
 
@@ -208,7 +211,7 @@ private fun DetailField(
             onValueChange = onValueChange,
             singleLine = true,
             leadingIcon = {
-                CompositionLocalProvider(LocalContentColor provides Color(0xFF111111)) {
+                CompositionLocalProvider(LocalContentColor provides primary) {
                     leading()
                 }
             },
@@ -216,21 +219,23 @@ private fun DetailField(
                 if (!suffix.isNullOrBlank()) {
                     Text(
                         text = suffix,
-                        color = Color(0xFF8E9097),
+                        color = textLabel,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
             },
-            placeholder = { Text(placeholder) },
+            placeholder = { Text(placeholder, color = textLabel.copy(alpha = 0.5f)) },
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                unfocusedContainerColor = Color(0xFFF7F8FB),
-                focusedContainerColor = Color(0xFFF7F8FB),
-                unfocusedBorderColor = Color(0xFFE6E8EE),
-                focusedBorderColor = Color(0xFF111111),
-                cursorColor = Color(0xFF111111)
+                unfocusedContainerColor = fieldBg,
+                focusedContainerColor = fieldBg,
+                unfocusedBorderColor = fieldBorder,
+                focusedBorderColor = primary,
+                cursorColor = primary,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
             ),
             modifier = Modifier.fillMaxWidth()
         )
@@ -244,7 +249,7 @@ private fun DividerSoft() {
             .fillMaxWidth()
             .padding(vertical = 14.dp)
             .height(1.dp)
-            .background(Color(0xFFE9EAEE))
+            .background(MaterialTheme.colorScheme.secondaryContainer)
     )
 }
 

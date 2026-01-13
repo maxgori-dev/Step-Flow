@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,7 +75,6 @@ private fun spScaled(base: Float, s: Float, minSp: Float, maxSp: Float): TextUni
     return (base * s).coerceIn(minSp, maxSp).sp
 }
 
-/** iOS-like appear without AnimatedVisibility */
 @Composable
 private fun IosAppear(
     modifier: Modifier = Modifier,
@@ -132,6 +132,9 @@ fun AchievementsScreen(
 ) {
     val uiScale = rememberUiScale()
 
+    val bg = MaterialTheme.colorScheme.background
+    val textPrimary = MaterialTheme.colorScheme.onSurface
+
     val achievements = remember(runs) {
         buildAchievements(
             runs = runs,
@@ -159,13 +162,16 @@ fun AchievementsScreen(
                 title = { Text("Achievements", fontWeight = FontWeight.Bold, fontSize = topTitleSize) },
                 navigationIcon = {
                     IconButton(onClick = { if (selected != null) selected = null else onBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = textPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = bg,
+                    titleContentColor = textPrimary
+                )
             )
         },
-        containerColor = Color.White
+        containerColor = bg
     ) { padding ->
         Box(
             modifier = Modifier
@@ -174,7 +180,6 @@ fun AchievementsScreen(
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
 
-                // fixed header
                 IosAppear(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -193,7 +198,6 @@ fun AchievementsScreen(
                     )
                 }
 
-                // scroll cards
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -238,11 +242,12 @@ private fun AchievementsHeader(
     totalCount: Int
 ) {
     val cardShape = RoundedCornerShape(dpScaled(26f, uiScale, 22f, 30f))
-    val cardBg = Color(0xFFF2F3F5)
-    val border = Color(0xFFE1E4E8)
 
+    val cardBg = MaterialTheme.colorScheme.surface
+    val border = MaterialTheme.colorScheme.secondaryContainer
+    val textMain = MaterialTheme.colorScheme.onSurface
+    val textMuted = MaterialTheme.colorScheme.onSurfaceVariant
     val green = Color(0xFF86D400)
-    val textDark = Color(0xFF111827)
 
     val ratio =
         if (totalCount > 0) (unlockedCount.toFloat() / totalCount.toFloat()).coerceIn(0f, 1f) else 0f
@@ -251,12 +256,12 @@ private fun AchievementsHeader(
     val headerPadH = dpScaled(18f, uiScale, 14f, 22f)
     val headerPadV = dpScaled(18f, uiScale, 14f, 22f)
 
-    val avatarFrame = dpScaled(90f, uiScale, 72f, 110f)   // bigger
-    val avatarSize = dpScaled(82f, uiScale, 64f, 102f)    // bigger
+    val avatarFrame = dpScaled(90f, uiScale, 72f, 110f)
+    val avatarSize = dpScaled(82f, uiScale, 64f, 102f)
 
     val titleSize = spScaled(18f, uiScale, 15f, 20f)
     val labelSize = spScaled(12f, uiScale, 10f, 13f)
-    val scoreSize = spScaled(34f, uiScale, 26f, 40f)      // bigger
+    val scoreSize = spScaled(34f, uiScale, 26f, 40f)
     val chipText = spScaled(12f, uiScale, 10f, 13f)
 
     Card(
@@ -277,7 +282,7 @@ private fun AchievementsHeader(
                     modifier = Modifier
                         .size(avatarFrame)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(MaterialTheme.colorScheme.background)
                         .border(dpScaled(1.5f, uiScale, 1f, 2f), border, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
@@ -301,7 +306,7 @@ private fun AchievementsHeader(
                         text = displayName,
                         fontSize = titleSize,
                         fontWeight = FontWeight.SemiBold,
-                        color = textDark,
+                        color = textMain,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -312,7 +317,7 @@ private fun AchievementsHeader(
                         text = "TOTAL SCORE",
                         fontSize = labelSize,
                         fontWeight = FontWeight.Black,
-                        color = Color(0xFF4B5563),
+                        color = textMuted,
                         letterSpacing = spScaled(0.6f, uiScale, 0.4f, 0.9f)
                     )
 
@@ -329,7 +334,7 @@ private fun AchievementsHeader(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .background(Color.White)
+                        .background(MaterialTheme.colorScheme.background)
                         .border(1.dp, border, RoundedCornerShape(999.dp))
                         .padding(
                             horizontal = dpScaled(12f, uiScale, 10f, 16f),
@@ -341,7 +346,7 @@ private fun AchievementsHeader(
                         text = "$percent%  $unlockedCount/$totalCount",
                         fontSize = chipText,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF374151),
+                        color = textMuted,
                         maxLines = 1
                     )
                 }
@@ -355,7 +360,7 @@ private fun AchievementsHeader(
                     .fillMaxWidth()
                     .height(dpScaled(12f, uiScale, 9f, 14f))
                     .clip(RoundedCornerShape(999.dp)),
-                trackColor = Color(0xFFE7E9EE),
+                trackColor = border,
                 color = green
             )
         }
@@ -393,7 +398,7 @@ private fun AchievementCenterOverlay(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.35f * scrimAlpha))
+                .background(Color.Black.copy(alpha = 0.6f * scrimAlpha))
                 .clickable { onDismiss() },
             contentAlignment = Alignment.Center
         ) {
@@ -426,12 +431,12 @@ private fun XboxAchievementCard(
     modifier: Modifier = Modifier
 ) {
     val cardShape = RoundedCornerShape(dpScaled(18f, uiScale, 16f, 22f))
-    val cardBg = Color(0xFFF2F3F5)
-    val border = Color(0xFFE1E4E8)
 
+    val cardBg = MaterialTheme.colorScheme.surface
+    val border = MaterialTheme.colorScheme.secondaryContainer
+    val textMain = MaterialTheme.colorScheme.onSurface
+    val textMuted = MaterialTheme.colorScheme.onSurfaceVariant
     val green = Color(0xFF86D400)
-    val textDark = Color(0xFF111827)
-    val textMuted = Color(0xFF6B7280)
 
     val statusText = if (a.isUnlocked) "ACHIEVEMENT UNLOCKED" else "ACHIEVEMENT LOCKED"
     val statusColor = if (a.isUnlocked) green else textMuted
@@ -461,15 +466,15 @@ private fun XboxAchievementCard(
                     modifier = Modifier
                         .size(dpScaled(44f, uiScale, 40f, 54f))
                         .clip(CircleShape)
-                        .background(Color(0xFF0B0F14))
-                        .border(2.dp, Color(0xFF2B313A), CircleShape),
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                        .border(2.dp, border, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
                         modifier = Modifier
                             .size(dpScaled(32f, uiScale, 28f, 40f))
                             .clip(CircleShape)
-                            .background(Color(0xFF121826))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                             .border(2.dp, green.copy(alpha = 0.65f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
@@ -501,7 +506,7 @@ private fun XboxAchievementCard(
                         text = "${a.pointsG}G  -  $rightPart",
                         fontSize = spScaled(13f, uiScale, 12f, 15f),
                         fontWeight = FontWeight.SemiBold,
-                        color = textDark,
+                        color = textMain,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -523,7 +528,7 @@ private fun XboxAchievementCard(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .background(if (a.isUnlocked) green.copy(alpha = 0.12f) else Color.White)
+                        .background(if (a.isUnlocked) green.copy(alpha = 0.12f) else MaterialTheme.colorScheme.background)
                         .border(
                             1.dp,
                             if (a.isUnlocked) green.copy(alpha = 0.35f) else border,
@@ -539,7 +544,7 @@ private fun XboxAchievementCard(
                         text = if (a.isUnlocked) "DONE" else "IN PROGRESS",
                         fontSize = spScaled(11f, uiScale, 10f, 13f),
                         fontWeight = FontWeight.Bold,
-                        color = if (a.isUnlocked) green else Color(0xFF374151),
+                        color = if (a.isUnlocked) green else textMuted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -559,14 +564,14 @@ private fun XboxAchievementCard(
                             .weight(1f)
                             .height(dpScaled(8f, uiScale, 7f, 12f))
                             .clip(RoundedCornerShape(999.dp)),
-                        trackColor = Color(0xFFE7E9EE),
+                        trackColor = border,
                         color = green
                     )
                     Spacer(modifier = Modifier.width(dpScaled(10f, uiScale, 8f, 14f)))
                     Text(
                         text = "$percent%  ${a.progress}/${a.target}",
                         fontSize = spScaled(12f, uiScale, 11f, 14f),
-                        color = Color(0xFF4B5563),
+                        color = textMuted,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1
                     )
@@ -705,20 +710,23 @@ private fun rememberAvatarBitmap(uriString: String): State<ImageBitmap?> {
 
 @Composable
 private fun AvatarPlaceholder(modifier: Modifier = Modifier) {
+    val bg = MaterialTheme.colorScheme.secondaryContainer
+    val fg = MaterialTheme.colorScheme.onSurfaceVariant
+
     androidx.compose.foundation.Canvas(
         modifier = modifier
             .clip(CircleShape)
-            .background(Color(0xFFE9EAEF))
+            .background(bg)
     ) {
         val w = size.width
         val h = size.height
         drawCircle(
-            color = Color(0xFFB9BCC4),
+            color = fg,
             radius = w * 0.18f,
             center = Offset(w * 0.5f, h * 0.42f)
         )
         drawCircle(
-            color = Color(0xFFB9BCC4),
+            color = fg,
             radius = w * 0.28f,
             center = Offset(w * 0.5f, h * 0.82f)
         )
