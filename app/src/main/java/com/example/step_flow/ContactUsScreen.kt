@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -61,7 +62,6 @@ fun ContactUsScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit
 ) {
-    // --------- Adaptive sizing (auto-resize) ----------
     val cfg = LocalConfiguration.current
     val compactH = cfg.screenHeightDp < 700
     val compactW = cfg.screenWidthDp < 390
@@ -74,12 +74,12 @@ fun ContactUsScreen(
     val cardShadow = if (compactH) 4.dp else 6.dp
     val cardRadius = if (compactW) 20.dp else 22.dp
 
-    // --------- Colors ----------
-    val bg = Color.White
-    val title = Color(0xFF111111)
-    val hint = Color(0xFF6F747C)
-    val cardBg = Color(0xFFF3F5F8)
-    val stroke = Color(0xFFE6E9EF)
+    // ✅ Theme Colors
+    val bg = MaterialTheme.colorScheme.background
+    val title = MaterialTheme.colorScheme.onBackground
+    val hint = MaterialTheme.colorScheme.onSurfaceVariant
+    val cardBg = MaterialTheme.colorScheme.surface
+    val stroke = MaterialTheme.colorScheme.secondaryContainer
 
     val email = "stepflow@gmail.com"
     val phone = "+48 500 123 456"
@@ -114,7 +114,6 @@ fun ContactUsScreen(
     val snack = remember { SnackbarHostState() }
 
     fun strongFeedback(message: String) {
-        // "Strong" feedback: haptic + snackbar
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         scope.launch { snack.showSnackbar(message) }
     }
@@ -135,7 +134,6 @@ fun ContactUsScreen(
         ) {
             item { Spacer(Modifier.height(topGap)) }
 
-            // Top bar
             item {
                 Row(
                     modifier = Modifier
@@ -179,7 +177,6 @@ fun ContactUsScreen(
                 )
             }
 
-            // Contact card
             item {
                 SoftCard(
                     bg = cardBg,
@@ -218,7 +215,6 @@ fun ContactUsScreen(
 
             item { Spacer(Modifier.height(sectionGap)) }
 
-            // Developers card
             item {
                 SoftCard(
                     bg = cardBg,
@@ -239,7 +235,6 @@ fun ContactUsScreen(
 
             item { Spacer(Modifier.height(sectionGap)) }
 
-            // Message template
             item {
                 val expanded = rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
 
@@ -293,7 +288,6 @@ fun ContactUsScreen(
 
                     Spacer(Modifier.height(10.dp))
 
-                    // Tap row to expand/collapse (auto-resize without losing layout)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -316,11 +310,11 @@ fun ContactUsScreen(
                         )
                     }
 
+                    // Inner box for template
                     Surface(
-                        color = Color.White.copy(alpha = 0.75f),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f), // ✅ Adaptive
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        // If not expanded, show a shorter preview that fits small screens.
                         val shownText = if (expanded.value) baseMessage else baseMessage.lines()
                             .take(10)
                             .joinToString("\n")
@@ -329,7 +323,7 @@ fun ContactUsScreen(
                         Text(
                             text = shownText,
                             fontSize = 12.sp,
-                            color = Color(0xFF2A2D33),
+                            color = MaterialTheme.colorScheme.onSurface, // ✅ Adaptive
                             lineHeight = 18.sp,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -348,11 +342,6 @@ fun ContactUsScreen(
 
             item { Spacer(Modifier.height(18.dp)) }
         }
-    }
-
-    // Optional: show a tiny “ready” feedback once when screen opens (feel free to remove)
-    LaunchedEffect(Unit) {
-        // nothing by default; keep clean
     }
 }
 
@@ -402,8 +391,8 @@ private fun ContactRow(
     value: String,
     onClick: () -> Unit
 ) {
-    val t = Color(0xFF111111)
-    val hint = Color(0xFF6F747C)
+    val t = MaterialTheme.colorScheme.onSurface // ✅
+    val hint = MaterialTheme.colorScheme.onSurfaceVariant // ✅
 
     Row(
         modifier = Modifier
@@ -437,15 +426,15 @@ private fun ContactRow(
             text = "Open",
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF111111).copy(alpha = 0.65f)
+            color = t.copy(alpha = 0.65f)
         )
     }
 }
 
 @Composable
 private fun DevRow(name: String) {
-    val t = Color(0xFF111111)
-    val hint = Color(0xFF6F747C)
+    val t = MaterialTheme.colorScheme.onSurface // ✅
+    val hint = MaterialTheme.colorScheme.onSurfaceVariant // ✅
 
     Row(
         modifier = Modifier

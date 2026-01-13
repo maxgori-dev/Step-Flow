@@ -48,7 +48,7 @@ fun ProfileSetupScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
-        // Header
+        
         Box(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "Profile setup",
@@ -248,7 +248,7 @@ private fun MinimalSlider(
             },
         contentAlignment = Alignment.Center
     ) {
-        // dots
+        
         Row(
             modifier = Modifier
                 .fillMaxWidth()

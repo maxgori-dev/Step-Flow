@@ -39,6 +39,7 @@ import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -76,20 +77,19 @@ fun TipsAndTricksScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit
 ) {
-    val bg = Color.White
-    val titleColor = Color(0xFF111111)
-    val hint = Color(0xFF6F747C)
-    val cardBg = Color(0xFFF3F5F8)
-    val divider = Color(0xFFE6E9EF)
+    // ✅ Colors from Theme
+    val bg = MaterialTheme.colorScheme.background
+    val titleColor = MaterialTheme.colorScheme.onBackground
+    val hint = MaterialTheme.colorScheme.onSurfaceVariant
+    val cardBg = MaterialTheme.colorScheme.surface
+    val divider = MaterialTheme.colorScheme.secondaryContainer
 
     val haptics = LocalHapticFeedback.current
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    // какой элемент открыт (один за раз)
     var expandedIndex by rememberSaveable { mutableIntStateOf(-1) }
 
-    // контент tips (под StepFlow)
     val tips = remember {
         listOf(
             TipItem(
@@ -144,7 +144,6 @@ fun TipsAndTricksScreen(
         )
     }
 
-    // Back always returns
     BackHandler(enabled = true) { onBack() }
 
     Scaffold(containerColor = bg) { inner ->
@@ -158,7 +157,6 @@ fun TipsAndTricksScreen(
         ) {
             Spacer(Modifier.height(8.dp))
 
-            // Top bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -208,9 +206,7 @@ fun TipsAndTricksScreen(
                             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             expandedIndex = if (expanded) -1 else index
 
-                            // докрутка, чтобы раскрытый текст не уплыл под низ
                             scope.launch {
-                                // чуть подождём анимацию (субъективно приятнее)
                                 kotlinx.coroutines.delay(60)
                                 listState.animateScrollToItem(index)
                             }
@@ -231,6 +227,8 @@ private fun TipCard(
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(22.dp)
+    val textMain = MaterialTheme.colorScheme.onSurface
+    val textSub = MaterialTheme.colorScheme.onSurfaceVariant
 
     val chevronRotation by animateFloatAsState(
         targetValue = if (expanded) 90f else 0f,
@@ -260,7 +258,7 @@ private fun TipCard(
                 Icon(
                     imageVector = item.icon,
                     contentDescription = null,
-                    tint = Color(0xFF111111),
+                    tint = textMain, // ✅ Adaptive tint
                     modifier = Modifier.alpha(0.95f)
                 )
 
@@ -271,22 +269,21 @@ private fun TipCard(
                         text = item.title,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF111111)
+                        color = textMain // ✅ Adaptive text
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = item.subtitle,
                         fontSize = 13.sp,
-                        color = Color(0xFF6F747C)
+                        color = textSub // ✅ Adaptive text
                     )
                 }
 
                 Icon(
                     imageVector = Icons.Outlined.ChevronRight,
                     contentDescription = null,
-                    tint = Color(0xFF111111).copy(alpha = 0.60f),
-                    modifier = Modifier
-                        .graphicsLayer { rotationZ = chevronRotation }
+                    tint = textMain.copy(alpha = 0.60f), // ✅ Adaptive chevron
+                    modifier = Modifier.graphicsLayer { rotationZ = chevronRotation }
                 )
             }
 
@@ -307,7 +304,7 @@ private fun TipCard(
                     Text(
                         text = item.body,
                         fontSize = 14.sp,
-                        color = Color(0xFF2A2D33),
+                        color = textMain.copy(alpha = 0.9f), // ✅ Adaptive body
                         lineHeight = 20.sp
                     )
                 }

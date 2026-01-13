@@ -39,7 +39,7 @@ fun WelcomeBodyScreen(
             TextButton(onClick = onFinish) { Text("Skip") }
         }
 
-        // FIX: в Text нет параметра alpha -> делаем через цвет
+        
         Text(
             "2/3",
             modifier = Modifier.padding(top = 6.dp),

@@ -37,11 +37,11 @@ import androidx.core.app.ActivityCompat
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 
-// Перечисление для управления состоянием экрана
+
 enum class PermissionScreenState {
-    REQUESTING_INITIAL,      // 1. Запрашиваем основные разрешения
-    REQUESTING_BACKGROUND,   // 2. Запрашиваем фоновое разрешение
-    DENIED_PERMANENTLY       // 3. Пользователь навсегда отклонил основные разрешения
+    REQUESTING_INITIAL,      
+    REQUESTING_BACKGROUND,   
+    DENIED_PERMANENTLY       
 }
 
 @Composable
@@ -52,10 +52,10 @@ fun PermissionScreen(
     val context = LocalContext.current
     val activity = context.findActivity()
 
-    // Управляем, какой UI показывать пользователю
+    
     var screenState by remember { mutableStateOf(PermissionScreenState.REQUESTING_INITIAL) }
 
-    // --- Лаунчер для ОСНОВНЫХ разрешений (геолокация + активность) ---
+    
     val initialPermissionsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -76,12 +76,12 @@ fun PermissionScreen(
             ) {
                 screenState = PermissionScreenState.DENIED_PERMANENTLY
             } else {
-                // остаёмся на REQUESTING_INITIAL
+                
             }
         }
     }
 
-    // --- Лаунчер для ФОНОВОГО разрешения (только для Android 10+) ---
+    
     val backgroundPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) {
@@ -90,7 +90,7 @@ fun PermissionScreen(
 
     when (screenState) {
 
-        // --- Экран 1: Запрос основных разрешений ---
+        
         PermissionScreenState.REQUESTING_INITIAL -> {
             PermissionUI(
                 title = "Workout Permissions",
@@ -100,26 +100,26 @@ fun PermissionScreen(
                 onBackClick = onPermissionDenied
             )
 
-            // Авто-запрос при первом входе
+            
             LaunchedEffect(Unit) {
                 val perms = getInitialPermissions()
 
-                // Проверяем каждое разрешение вручную
+                
                 val allGranted = perms.all { permission ->
                     ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
                 }
 
                 if (allGranted) {
-                    // Если права уже есть — СРАЗУ переходим дальше, не показывая диалог
+                    
                     onPermissionsGranted()
                 } else {
-                    // Если прав нет — запрашиваем
+                    
                     initialPermissionsLauncher.launch(perms)
                 }
             }
         }
 
-        // --- Экран 2: Запрос фонового доступа ---
+        
         PermissionScreenState.REQUESTING_BACKGROUND -> {
             PermissionUI(
                 title = "Background Tracking",
@@ -136,7 +136,7 @@ fun PermissionScreen(
             )
         }
 
-        // --- Экран 3: Пользователь навсегда отклонил ---
+        
         PermissionScreenState.DENIED_PERMANENTLY -> {
             PermissionUI(
                 title = "Location Access Required",
@@ -193,7 +193,7 @@ private fun PermissionUI(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ✅ BaselineProfile: primary action button
+        
         Button(
             onClick = onButtonClick,
             modifier = Modifier.semantics { contentDescription = "bp_permission_allow" }
@@ -203,7 +203,7 @@ private fun PermissionUI(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ✅ BaselineProfile: back/deny
+        
         TextButton(
             onClick = onBackClick,
             modifier = Modifier.semantics { contentDescription = "bp_permission_deny" }
@@ -213,7 +213,7 @@ private fun PermissionUI(
     }
 }
 
-// Вспомогательная функция для безопасного поиска Activity
+
 private fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()

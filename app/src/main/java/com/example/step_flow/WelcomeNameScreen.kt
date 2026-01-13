@@ -50,7 +50,7 @@ fun WelcomeNameScreen(
             onNameChange = onNameChange,
             modifier = Modifier
                 .align(Alignment.Center)
-                // ✅ Сдвиг вверх на половину высоты нижнего блока — больше нет перекрытий
+                
                 .offset(y = -(bottomBlockHeightDp / 2f))
                 .fillMaxWidth(0.9f)
                 .graphicsLayer {
@@ -62,7 +62,7 @@ fun WelcomeNameScreen(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .navigationBarsPadding() // ✅ чтобы кнопка не уезжала под системную навигацию
+                .navigationBarsPadding() 
                 .padding(bottom = 24.dp)
                 .onSizeChanged { size ->
                     bottomBlockHeightDp = with(density) { size.height.toDp() }
@@ -115,7 +115,7 @@ private fun NameBadgeInput(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Поле ввода внутри бейджа
+        
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth(0.72f)

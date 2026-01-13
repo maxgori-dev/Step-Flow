@@ -48,7 +48,7 @@ fun GoalsScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            // Карточка настроек
+            
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(16.dp),
@@ -56,7 +56,7 @@ fun GoalsScreen(
             ) {
                 Column(Modifier.padding(20.dp)) {
 
-                    // 1. Steps
+                    
                     GoalSlider(
                         title = "Steps Goal",
                         value = steps,
@@ -68,7 +68,7 @@ fun GoalsScreen(
 
                     Divider(Modifier.padding(vertical = 16.dp), color = Color(0xFFF0F0F0))
 
-                    // 2. Minutes
+                    
                     GoalSlider(
                         title = "Active Minutes",
                         value = minutes,
@@ -80,7 +80,7 @@ fun GoalsScreen(
 
                     Divider(Modifier.padding(vertical = 16.dp), color = Color(0xFFF0F0F0))
 
-                    // 3. Calories
+                    
                     GoalSlider(
                         title = "Calories (Active)",
                         value = kcal,
@@ -136,7 +136,7 @@ fun GoalSlider(
         Slider(
             value = value,
             onValueChange = {
-                // Привязка к шагу (например, по 100 шагов)
+                
                 val rounded = (it / step).roundToInt() * step
                 onValueChange(rounded)
             },
