@@ -89,7 +89,7 @@ class BaselineProfileGenerator {
     }
 }
 
-/** Стабильный холодный старт */
+
 private fun MacrobenchmarkScope.prepareAndLaunch() {
     device.wakeUp()
     device.pressHome()
@@ -121,10 +121,7 @@ private fun MacrobenchmarkScope.pressBackStable() {
     device.waitForIdle()
 }
 
-/**
- * Главное исправление: ищем именно bp_name_input, вводим текст,
- * ждём когда bp_continue станет enabled, потом жмём Continue.
- */
+
 private fun MacrobenchmarkScope.enterNameThenContinue() {
     val onWelcome =
         device.wait(Until.hasObject(By.desc("bp_name_input")), TIMEOUT) ||

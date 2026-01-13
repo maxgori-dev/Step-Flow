@@ -31,13 +31,13 @@ fun RunDetailsScreen(
 ) {
     val scrollState = rememberScrollState()
 
-    // 1. Форматирование даты
+    
     val dateStr = remember(run.timestamp) {
         val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault())
         sdf.format(Date(run.timestamp))
     }
 
-    // 2. Расчет ТЕМПА (мин/км)
+    
     val paceText = remember(run.avgSpeedKmh) {
         if (run.avgSpeedKmh > 0.1) {
             val paceMinTotal = 60.0 / run.avgSpeedKmh
@@ -69,7 +69,7 @@ fun RunDetailsScreen(
                 .padding(padding)
                 .verticalScroll(scrollState)
         ) {
-            // --- БЛОК С КАРТОЙ ---
+            
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -92,7 +92,7 @@ fun RunDetailsScreen(
                 }
             }
 
-            // --- ДАТА ---
+            
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -106,9 +106,9 @@ fun RunDetailsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- СТАТИСТИКА (Сетка карточек) ---
+            
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                // Ряд 1: Дистанция и Калории
+                
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     DetailCard(
                         modifier = Modifier.weight(1f),
@@ -126,7 +126,7 @@ fun RunDetailsScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Ряд 2: Время и Скорость
+                
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     val h = run.durationSeconds / 3600
                     val m = (run.durationSeconds % 3600) / 60
@@ -149,7 +149,7 @@ fun RunDetailsScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Ряд 3: Шаги и ТЕМП (Добавлено)
+                
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     DetailCard(
                         modifier = Modifier.weight(1f),
@@ -157,7 +157,7 @@ fun RunDetailsScreen(
                         unit = "steps",
                         label = "Total Steps"
                     )
-                    // ✅ Добавлена карточка Темпа
+                    
                     DetailCard(
                         modifier = Modifier.weight(1f),
                         value = paceText,

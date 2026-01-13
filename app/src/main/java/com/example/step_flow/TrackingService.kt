@@ -34,7 +34,7 @@ class TrackingService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    // --- StateFlow ---
+    
     private val _durationSeconds = MutableStateFlow(0L)
     val durationSeconds = _durationSeconds.asStateFlow()
 
@@ -60,7 +60,7 @@ class TrackingService : Service() {
     private lateinit var sensorManager: SensorManager
     private lateinit var notificationManager: NotificationManager
 
-    // Данные пользователя
+    
     private var weightKg: Double = 70.0
     private var heightCm: Double = 175.0
     private var ageYears: Int = 25
@@ -101,10 +101,10 @@ class TrackingService : Service() {
         serviceScope.launch {
             while (isTracking) {
                 if (!_isPaused.value) {
-                    delay(1000L) // Ждем 1 секунду
+                    delay(1000L) 
                     _durationSeconds.value += 1
 
-                    // Обновляем калории
+                    
                     updateCaloriesForOneSecond()
 
                     updateNotification()
@@ -119,30 +119,30 @@ class TrackingService : Service() {
     private fun updateCaloriesForOneSecond() {
         val speed = _currentSpeedKmh.value
 
-        // 🛡️ 1. ЗАЩИТА ОТ ДРЕЙФА GPS
-        // Если скорость меньше 2.0 км/ч, считаем, что мы стоим или топчемся на месте.
-        // Калории не начисляются.
+        
+        
+        
         if (speed < 2.5f) {
             return
         }
 
-        // 🛡️ 2. ДИНАМИЧЕСКИЙ РАСЧЕТ MET (зависит от точной скорости)
-        // Мы не используем жесткие рамки, а умножаем скорость на коэффициент.
+        
+        
         val met = if (speed <= 7.0) {
-            // Ходьба: Энергозатраты растут медленнее
-            // Пример: 5 км/ч * 0.7 = 3.5 MET (стандарт для ходьбы)
+            
+            
             speed * 0.7f
         } else {
-            // Бег: Энергозатраты равны или чуть выше скорости
-            // Пример: 10 км/ч * 1.0 = 10 MET (стандарт для бега)
+            
+            
             speed * 1.0f
         }
 
-        // 🛡️ 3. СТАНДАРТНАЯ ФОРМУЛА КАЛОРИЙ
-        // Формула: (MET * 3.5 * Вес) / 200 = Ккал в МИНУТУ
+        
+        
         val kcalPerMin = (met * 3.5 * weightKg) / 200.0
 
-        // Делим на 60, чтобы получить порцию за 1 СЕКУНДУ
+        
         val kcalPerSec = kcalPerMin / 60.0
 
         preciseCalories += kcalPerSec
@@ -172,7 +172,7 @@ class TrackingService : Service() {
             if (_isPaused.value) return
 
             result.lastLocation?.let { location ->
-                // 🛡️ Фильтр плохих точек GPS (>20м)
+                
                 if (location.accuracy > 20) return@let
 
                 if (lastLocation != null) {
@@ -243,7 +243,7 @@ class TrackingService : Service() {
     private fun createNotification(content: String) = NotificationCompat.Builder(this, "tracking_channel")
         .setContentTitle("Step-Flow Run")
         .setContentText(content)
-        .setSmallIcon(R.drawable.ic_launcher_foreground) // Замените на вашу иконку!
+        .setSmallIcon(R.drawable.ic_launcher_foreground) 
         .setOngoing(true)
         .setOnlyAlertOnce(true)
         .build()

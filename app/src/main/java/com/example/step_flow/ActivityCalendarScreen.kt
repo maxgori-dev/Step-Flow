@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -51,7 +52,7 @@ import java.util.Locale
 import kotlin.math.min
 
 private const val DAYS_IN_WEEK = 7
-private const val GRID_CELLS = 42 // 7*6
+private const val GRID_CELLS = 42
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -83,14 +84,10 @@ fun ActivityCalendarScreen(
             val totalSeconds = dailyRuns.sumOf { it.durationSeconds }
             val totalKcal = dailyRuns.sumOf { it.calories.toDouble() }.toInt()
 
-            // ✅ ИСПРАВЛЕНИЕ 1: Убираем .coerceIn(0f, 1f)
-            // Это позволяет прогрессу быть больше 1.0 (например, 1.5 = 150%)
-            // Также сохраняем прогресс для каждого кольца отдельно.
             val pSteps = (totalSteps.toFloat() / goalSteps)
             val pMin = ((totalSeconds / 60f) / goalMinutes)
             val pKcal = (totalKcal.toFloat() / goalKcal)
 
-            // overallProgress оставляем ограниченным для логики "достиг цели или нет"
             val overall = ((pSteps.coerceAtMost(1f) + pMin.coerceAtMost(1f) + pKcal.coerceAtMost(1f)) / 3f)
 
             map[date] = DayMetrics(
@@ -101,7 +98,6 @@ fun ActivityCalendarScreen(
                 goalMinutes = goalMinutes,
                 goalKcal = goalKcal,
                 overallProgress = overall,
-                // ✅ Сохраняем "сырой" прогресс > 100%
                 pSteps = pSteps,
                 pMinutes = pMin,
                 pKcal = pKcal
@@ -128,7 +124,7 @@ fun ActivityCalendarScreen(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F6F8))
+            .background(MaterialTheme.colorScheme.background)
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
         val minDim = minOf(maxWidth, maxHeight)
@@ -162,7 +158,7 @@ fun ActivityCalendarScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp * uiScale),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.surface,
                     shadowElevation = 12.dp * uiScale
                 ) {
                     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -186,7 +182,7 @@ fun ActivityCalendarScreen(
                                 cellSize = cellSize,
                                 scale = uiScale,
                                 pickedDate = pickedDate,
-                                dayData = dayData, // Передаем всю карту данных
+                                dayData = dayData,
                                 onDayClick = { date ->
                                     if (date != null) {
                                         pickedDate = date
@@ -217,15 +213,14 @@ fun ActivityCalendarScreen(
 
 data class MonthStats(val steps: Int, val minutes: Int, val kcal: Int, val goalDays: Int)
 
-// ... (TopBarLight, WeekHeaderAligned, SummaryBlockLight - без изменений) ...
 @Composable
 private fun TopBarLight(title: String, scale: Float, onBack: () -> Unit, onToday: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("←", color = Color(0xFF111111), fontSize = (22.sp * scale), modifier = Modifier.padding(end = 10.dp * scale).clickable { onBack() })
-        Text(title, color = Color(0xFF111111), fontSize = (22.sp * scale), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Text("←", color = MaterialTheme.colorScheme.onBackground, fontSize = (22.sp * scale), modifier = Modifier.padding(end = 10.dp * scale).clickable { onBack() })
+        Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = (22.sp * scale), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         Text("Today", color = Color(0xFF0A84FF), fontSize = (16.sp * scale), fontWeight = FontWeight.Medium, modifier = Modifier.padding(end = 14.dp * scale).clickable { onToday() })
     }
 }
@@ -236,12 +231,12 @@ private fun WeekHeaderAligned(cellSize: Dp, scale: Float, modifier: Modifier = M
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
         labels.forEachIndexed { index, s ->
             Box(modifier = Modifier.size(cellSize), contentAlignment = Alignment.Center) {
-                Text(s, color = if (index == 6) Color(0xFFE05A5A) else Color(0xFF9EA0A6), fontSize = (14.sp * scale), fontWeight = FontWeight.Medium)
+                Text(s, color = if (index == 6) Color(0xFFE05A5A) else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = (14.sp * scale), fontWeight = FontWeight.Medium)
             }
         }
     }
     Spacer(Modifier.height(8.dp * scale))
-    Box(Modifier.fillMaxWidth().height((1.dp * scale).coerceAtLeast(1.dp)).background(Color(0xFFE7E8EC)))
+    Box(Modifier.fillMaxWidth().height((1.dp * scale).coerceAtLeast(1.dp)).background(MaterialTheme.colorScheme.secondaryContainer))
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -250,22 +245,22 @@ private fun SummaryBlockLight(scale: Float, month: YearMonth, onPrevMonth: () ->
     val monthTitle = month.month.getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " " + month.year
     Column(modifier = Modifier.padding(horizontal = 14.dp * scale)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            IconButton(onClick = onPrevMonth, modifier = Modifier.size(24.dp * scale)) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, tint = Color.Gray) }
-            Text(monthTitle, color = Color(0xFF111111), fontSize = (18.sp * scale), fontWeight = FontWeight.SemiBold)
-            IconButton(onClick = onNextMonth, modifier = Modifier.size(24.dp * scale)) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.Gray) }
+            IconButton(onClick = onPrevMonth, modifier = Modifier.size(24.dp * scale)) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            Text(monthTitle, color = MaterialTheme.colorScheme.onSurface, fontSize = (18.sp * scale), fontWeight = FontWeight.SemiBold)
+            IconButton(onClick = onNextMonth, modifier = Modifier.size(24.dp * scale)) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         Spacer(Modifier.height(6.dp * scale))
-        Text("Goal achieved ${stats.goalDays} days", color = Color(0xFF6B6E76), fontSize = (16.sp * scale), fontWeight = FontWeight.Medium, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text("Goal achieved ${stats.goalDays} days", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = (16.sp * scale), fontWeight = FontWeight.Medium, modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(12.dp * scale))
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            Text("${stats.steps} steps", color = Color(0xFF111111), fontSize = (16.sp * scale), fontWeight = FontWeight.SemiBold)
+            Text("${stats.steps} steps", color = MaterialTheme.colorScheme.onSurface, fontSize = (16.sp * scale), fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.width(12.dp * scale))
-            Text("|", color = Color(0xFFB5B7BE), fontSize = (16.sp * scale))
+            Text("|", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = (16.sp * scale))
             Spacer(Modifier.width(12.dp * scale))
-            Text("${stats.minutes} min", color = Color(0xFF111111), fontSize = (16.sp * scale), fontWeight = FontWeight.SemiBold)
+            Text("${stats.minutes} min", color = MaterialTheme.colorScheme.onSurface, fontSize = (16.sp * scale), fontWeight = FontWeight.SemiBold)
         }
         Spacer(Modifier.height(4.dp * scale))
-        Text("${stats.kcal} kcal", color = Color(0xFF111111), fontSize = (16.sp * scale), fontWeight = FontWeight.SemiBold, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text("${stats.kcal} kcal", color = MaterialTheme.colorScheme.onSurface, fontSize = (16.sp * scale), fontWeight = FontWeight.SemiBold, modifier = Modifier.align(Alignment.CenterHorizontally))
     }
 }
 
@@ -285,7 +280,6 @@ private fun CalendarGridAligned(
                 for (col in 0 until DAYS_IN_WEEK) {
                     val idx = row * DAYS_IN_WEEK + col
                     val cell = cells[idx]
-                    // Получаем метрики для конкретного дня или пустые, если данных нет
                     val metrics = cell.date?.let { dayData[it] } ?: DayMetrics.empty()
 
                     DayCellItem(
@@ -293,7 +287,7 @@ private fun CalendarGridAligned(
                         cellSize = cellSize,
                         scale = scale,
                         isPicked = cell.date == pickedDate,
-                        metrics = metrics, // Передаем метрики
+                        metrics = metrics,
                         onClick = { onDayClick(cell.date) }
                     )
                 }
@@ -309,7 +303,7 @@ private fun DayCellItem(
     cellSize: Dp,
     scale: Float,
     isPicked: Boolean,
-    metrics: DayMetrics, // Принимаем объект DayMetrics
+    metrics: DayMetrics,
     onClick: () -> Unit
 ) {
     val date = cell.date
@@ -325,7 +319,6 @@ private fun DayCellItem(
     val pad = (6.dp * scale).coerceIn(4.dp, 8.dp)
     val corner = (16.dp * scale).coerceIn(12.dp, 18.dp)
 
-    // Увеличили размер колец, чтобы они были видны
     val ringSize = (cellSize * 0.85f).coerceIn(26.dp, 44.dp)
     val ringStroke = (cellSize * 0.08f).coerceIn(2.5.dp, 4.dp)
 
@@ -338,11 +331,10 @@ private fun DayCellItem(
         contentAlignment = Alignment.Center
     ) {
         if (pickedAlpha > 0f) {
-            Box(Modifier.matchParentSize().background(Color(0xFFEFF0F3).copy(alpha = pickedAlpha)))
+            Box(Modifier.matchParentSize().background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = pickedAlpha)))
         }
 
         if (date != null) {
-            // ✅ Теперь передаем РЕАЛЬНЫЕ данные для каждого кольца
             ProgressRingsLight(
                 pSteps = metrics.pSteps,
                 pTime = metrics.pMinutes,
@@ -355,20 +347,18 @@ private fun DayCellItem(
             Text(
                 text = dayText,
                 color = when {
-                    cell.isOutsideMonth -> Color(0xFFB8BBC2)
+                    cell.isOutsideMonth -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     isSunday -> Color(0xFFE05A5A)
-                    else -> Color(0xFF34363C)
+                    else -> MaterialTheme.colorScheme.onSurface
                 },
                 fontSize = (13.sp * scale),
                 fontWeight = if (isPicked) FontWeight.SemiBold else FontWeight.Medium,
-                modifier = Modifier.align(Alignment.Center) // Центрируем текст поверх колец
+                modifier = Modifier.align(Alignment.Center)
             )
         }
     }
 }
 
-// ✅ ОБНОВЛЕННЫЙ КОМПОНЕНТ КОЛЕЦ
-// Теперь он принимает 3 параметра и разрешает переполнение (overfill)
 @Composable
 private fun ProgressRingsLight(
     pSteps: Float,
@@ -378,13 +368,11 @@ private fun ProgressRingsLight(
     stroke: Dp,
     dim: Boolean
 ) {
-    // Анимация без ограничения coerceIn(0,1), чтобы разрешить > 100%
     val p1 by animateFloatAsState(targetValue = pSteps, animationSpec = tween(450), label = "p1")
     val p2 by animateFloatAsState(targetValue = pTime, animationSpec = tween(520), label = "p2")
     val p3 by animateFloatAsState(targetValue = pKcal, animationSpec = tween(590), label = "p3")
 
-    val track = if (dim) Color(0xFFE9EAF0) else Color(0xFFE6E7EB)
-    // Зеленый (Шаги), Синий (Время), Розовый (Ккал)
+    val track = if (dim) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.secondaryContainer
     val green = if (dim) Color(0xFFBFDCC7) else Color(0xFF34C759)
     val blue = if (dim) Color(0xFFB9D7E8) else Color(0xFF0A84FF)
     val pink = if (dim) Color(0xFFE6B7C1) else Color(0xFFFF375F)
@@ -392,14 +380,12 @@ private fun ProgressRingsLight(
     Canvas(modifier = Modifier.size(size)) {
         val baseRadius = size.toPx() / 2f
         val strokePx = stroke.toPx()
-        // Расстояние между кольцами (немного плотнее, чем раньше)
         val gap = strokePx + 1.5f
 
         fun drawRing(index: Int, color: Color, progress: Float) {
             val radius = baseRadius - (index * gap) - (strokePx / 2f)
             if (radius <= 0) return
 
-            // 1. Рисуем серый трек (фон)
             drawArc(
                 color = track,
                 startAngle = -90f,
@@ -410,8 +396,6 @@ private fun ProgressRingsLight(
                 style = Stroke(width = strokePx, cap = StrokeCap.Round)
             )
 
-            // 2. Рисуем прогресс
-            // Если progress > 1.0, угол будет > 360, что создаст эффект наложения (Apple Watch style)
             if (progress > 0.01f) {
                 drawArc(
                     color = color,
@@ -425,9 +409,9 @@ private fun ProgressRingsLight(
             }
         }
 
-        drawRing(0, green, p1) // Внешнее (шаги)
-        drawRing(1, blue, p2)  // Среднее (минуты)
-        drawRing(2, pink, p3)  // Внутреннее (ккал)
+        drawRing(0, green, p1)
+        drawRing(1, blue, p2)
+        drawRing(2, pink, p3)
     }
 }
 
@@ -461,19 +445,18 @@ private fun DayDetailsPanel(
         Surface(
             modifier = Modifier.fillMaxWidth().padding(horizontal = padH),
             shape = RoundedCornerShape(22.dp * scale),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.surface,
             shadowElevation = 14.dp * scale
         ) {
             Column(modifier = Modifier.padding(14.dp * scale)) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text(text = dayTitle, fontSize = (16.sp * scale), fontWeight = FontWeight.SemiBold, color = Color(0xFF111111), modifier = Modifier.weight(1f))
-                    Box(modifier = Modifier.size(30.dp * scale).clip(CircleShape).background(Color(0xFFF0F1F4)).clickable { onClose() }, contentAlignment = Alignment.Center) {
-                        Text("×", fontSize = (18.sp * scale), color = Color(0xFF44474F))
+                    Text(text = dayTitle, fontSize = (16.sp * scale), fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                    Box(modifier = Modifier.size(30.dp * scale).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer).clickable { onClose() }, contentAlignment = Alignment.Center) {
+                        Text("×", fontSize = (18.sp * scale), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Spacer(Modifier.height(12.dp * scale))
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    // Большие кольца в панели деталей
                     ProgressRingsLight(
                         pSteps = metrics.pSteps,
                         pTime = metrics.pMinutes,
@@ -499,7 +482,7 @@ private fun MetricLine(scale: Float, color: Color, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(10.dp * scale).clip(CircleShape).background(color))
         Spacer(Modifier.width(10.dp * scale))
-        Text(text = label, color = Color(0xFF111111), fontSize = (16.sp * scale), fontWeight = FontWeight.Medium)
+        Text(text = label, color = MaterialTheme.colorScheme.onSurface, fontSize = (16.sp * scale), fontWeight = FontWeight.Medium)
     }
 }
 
@@ -514,8 +497,7 @@ data class DayMetrics(
     val goalSteps: Int,
     val goalMinutes: Int,
     val goalKcal: Int,
-    val overallProgress: Float, // 0..1 (для общей статистики)
-    // ✅ Новые поля для точного отображения колец > 100%
+    val overallProgress: Float,
     val pSteps: Float,
     val pMinutes: Float,
     val pKcal: Float

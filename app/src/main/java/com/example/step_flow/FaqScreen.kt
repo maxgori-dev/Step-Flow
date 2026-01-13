@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -53,9 +54,10 @@ fun FaqScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit
 ) {
-    val bg = Color.White
-    val title = Color(0xFF111111)
-    val hint = Color(0xFF6F747C)
+    // ✅ Colors from Theme
+    val bg = MaterialTheme.colorScheme.background
+    val title = MaterialTheme.colorScheme.onBackground
+    val hint = MaterialTheme.colorScheme.onSurfaceVariant
 
     val faqs = remember {
         listOf(
@@ -146,7 +148,7 @@ fun FaqScreen(
                 .background(bg)
                 .padding(inner)
         ) {
-            // Base content (blur when answer open)
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -160,13 +162,13 @@ fun FaqScreen(
                     text = "FAQ",
                     fontSize = 64.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = title,
+                    color = title, // ✅ Adaptive
                     letterSpacing = 1.2.sp
                 )
 
                 Spacer(Modifier.height(18.dp))
 
-                // List area
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -215,7 +217,7 @@ fun FaqScreen(
                         text = "Scroll to pick a question",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = hint,
+                        color = hint, // ✅ Adaptive
                         letterSpacing = 0.6.sp,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -223,7 +225,7 @@ fun FaqScreen(
                     )
                 }
 
-                // Bottom button instead of swipe
+
                 AnswerButton(
                     text = "View answer",
                     onClick = {
@@ -235,7 +237,7 @@ fun FaqScreen(
                 Spacer(Modifier.height(18.dp))
             }
 
-            // Answer overlay
+
             AnswerOverlayFullscreen(
                 visible = showAnswer,
                 question = faqs[selectedIndex].question,
@@ -262,13 +264,13 @@ private fun AnswerButton(
             .padding(horizontal = 22.dp)
             .height(54.dp)
             .clip(shape)
-            .background(Color(0xFF111111))
+            .background(MaterialTheme.colorScheme.primary) // ✅ Adaptive Primary
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onPrimary, // ✅ Adaptive OnPrimary
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 0.2.sp
@@ -286,8 +288,10 @@ private fun FaqPillFullscreen(
 ) {
     val shape = RoundedCornerShape(999.dp)
 
-    val bg = if (active) Color(0xFF111111) else Color(0xFFF1F3F7).copy(alpha = 0.70f)
-    val fg = if (active) Color.White else Color(0xFF111111).copy(alpha = 0.75f)
+    // ✅ Adaptive colors for pills
+    // Active: Primary, Inactive: SecondaryContainer
+    val bg = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.70f)
+    val fg = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
 
     Box(
         modifier = Modifier
@@ -334,7 +338,7 @@ private fun AnswerOverlayFullscreen(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            // swipe down to close (оставил, это логично и удобно)
+            // Allow drag to dismiss
             .pointerInput(visible) {
                 val thresholdPx = with(density) { 80.dp.toPx() }
                 var totalDrag = 0f
@@ -358,21 +362,27 @@ private fun AnswerOverlayFullscreen(
                 .fillMaxSize()
                 .graphicsLayer { translationY = offsetY }
         ) {
-            // scrim
+
+            // Scrim (stays black usually, but adjusted alpha)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.16f))
+                    .background(Color.Black.copy(alpha = 0.35f))
             )
 
             val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+
+            // ✅ Sheet Background adapted to theme
+            val sheetBg = MaterialTheme.colorScheme.surface
+            val onSheet = MaterialTheme.colorScheme.onSurface
+            val onSheetVar = MaterialTheme.colorScheme.onSurfaceVariant
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .align(Alignment.BottomCenter)
                     .clip(shape)
-                    .background(Color.White.copy(alpha = 0.86f))
+                    .background(sheetBg.copy(alpha = 0.96f)) // Slightly opaque surface
                     .padding(horizontal = 18.dp, vertical = 16.dp)
                     .statusBarsPadding()
             ) {
@@ -383,12 +393,12 @@ private fun AnswerOverlayFullscreen(
                     Icon(
                         imageVector = Icons.Outlined.HelpOutline,
                         contentDescription = null,
-                        tint = Color(0xFF111111)
+                        tint = onSheet // ✅
                     )
                     Spacer(Modifier.width(10.dp))
                     Text(
                         text = "Answer",
-                        color = Color(0xFF111111),
+                        color = onSheet, // ✅
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp
                     )
@@ -402,7 +412,7 @@ private fun AnswerOverlayFullscreen(
                         Icon(
                             imageVector = Icons.Outlined.Close,
                             contentDescription = "Close",
-                            tint = Color(0xFF111111)
+                            tint = onSheet // ✅
                         )
                     }
                 }
@@ -411,7 +421,7 @@ private fun AnswerOverlayFullscreen(
 
                 Text(
                     text = question,
-                    color = Color(0xFF111111),
+                    color = onSheet, // ✅
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                     lineHeight = 22.sp
@@ -421,7 +431,7 @@ private fun AnswerOverlayFullscreen(
 
                 Text(
                     text = answer,
-                    color = Color(0xFF6F747C),
+                    color = onSheetVar, // ✅
                     fontSize = 15.sp,
                     lineHeight = 22.sp
                 )
@@ -430,7 +440,7 @@ private fun AnswerOverlayFullscreen(
 
                 Text(
                     text = "Swipe down to close",
-                    color = Color(0xFF6F747C),
+                    color = onSheetVar, // ✅
                     fontSize = 12.sp
                 )
             }

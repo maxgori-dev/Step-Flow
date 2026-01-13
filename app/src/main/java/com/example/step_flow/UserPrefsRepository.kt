@@ -21,14 +21,14 @@ class UserPrefsRepository @Inject constructor(
         val KEY_WEIGHT = stringPreferencesKey("weight_kg")
         val KEY_AGE = stringPreferencesKey("age_years")
 
-        // ✅ onboarding done flag
+        
         val KEY_SETUP_DONE = booleanPreferencesKey("setup_done")
 
-        // ✅ avatar uri (persisted)
+        
         val KEY_AVATAR_URI = stringPreferencesKey("avatar_uri")
     }
 
-    // ---------- Flows (never nullable) ----------
+    
     val nameFlow: Flow<String> = dataStore.data.map { it[KEY_NAME] ?: "" }
     val heightFlow: Flow<String> = dataStore.data.map { it[KEY_HEIGHT] ?: "" }
     val weightFlow: Flow<String> = dataStore.data.map { it[KEY_WEIGHT] ?: "" }
@@ -36,24 +36,22 @@ class UserPrefsRepository @Inject constructor(
 
     val setupDoneFlow: Flow<Boolean> = dataStore.data.map { it[KEY_SETUP_DONE] ?: false }
 
-    // ✅ important: return "" instead of null
+    
     val avatarUriFlow: Flow<String> = dataStore.data.map { it[KEY_AVATAR_URI] ?: "" }
 
-    // ---------- One-time await (for loaded flag) ----------
+    
     suspend fun awaitFirstLoad() {
-        dataStore.data.first() // just wait first emission
+        dataStore.data.first() 
     }
 
-    // ---------- Writes ----------
+    
     suspend fun setName(value: String) {
         dataStore.edit { prefs ->
             prefs[KEY_NAME] = value.trim()
         }
     }
 
-    /**
-     * ✅ Save profile + mark setupDone=true (so setup screen shows only once).
-     */
+    
     suspend fun setProfile(heightCm: String, weightKg: String, ageYears: String) {
         dataStore.edit { prefs ->
             prefs[KEY_HEIGHT] = heightCm.trim()
