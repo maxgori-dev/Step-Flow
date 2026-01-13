@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">StepFlow</string>
+
+    <string name="home_app_title">StepFlow</string>
+    <string name="home_quick_actions">Szybkie akcje</string>
+
+    <string name="home_tile_calendar">Kalendarz</string>
+    <string name="home_tile_history">Historia</string>
+    <string name="home_tile_awards">Nagrody</string>
+
+    <string name="home_run">START</string>
+
+    <string name="home_nav_calendar">Kalendarz</string>
+    <string name="home_nav_home">Główna</string>
+    <string name="home_nav_profile">Profil</string>
+
+    <string name="cd_profile">Profil</string>
+    <string name="cd_settings">Ustawienia</string>
+</resources>

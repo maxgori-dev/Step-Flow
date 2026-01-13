@@ -8,15 +8,35 @@ import android.content.ServiceConnection
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.IBinder
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -35,11 +55,34 @@ import kotlin.coroutines.resume
 data class RunResult(
     val distanceMeters: Float,
     val durationSeconds: Long,
-    val calories: Float, // Используем Float
+    val calories: Float,
     val avgSpeedKmh: Float,
     val steps: Int,
     val screenshotPath: String?
 )
+
+private val GlassCardShape = RoundedCornerShape(24.dp)
+private val GlassBtnShape = RoundedCornerShape(16.dp)
+
+private val PanelTop = Color(0xFF7E8991).copy(alpha = 0.56f)
+private val PanelMid = Color(0xFF78838B).copy(alpha = 0.54f)
+private val PanelBot = Color(0xFF656E77).copy(alpha = 0.56f)
+
+private val ButtonTop = Color(0xFF9199A0).copy(alpha = 0.54f)
+private val ButtonMid = Color(0xFF8A939A).copy(alpha = 0.52f)
+private val ButtonBot = Color(0xFF7C858D).copy(alpha = 0.54f)
+
+private val BorderOuter = Color.White.copy(alpha = 0.26f)
+private val BorderInner = Color.White.copy(alpha = 0.10f)
+private val HighlightTop = Color.White.copy(alpha = 0.22f)
+private val HighlightEdge = Color.White.copy(alpha = 0.18f)
+private val ShadeEdge = Color.Black.copy(alpha = 0.10f)
+
+private val ShadowColor = Color.Black.copy(alpha = 0.28f)
+
+private val TextMain = Color.White.copy(alpha = 0.92f)
+private val TextSub = Color.White.copy(alpha = 0.60f)
+private val ValueText = Color.White.copy(alpha = 0.88f)
 
 @SuppressLint("MissingPermission")
 @Composable
@@ -53,8 +96,8 @@ fun TrackingScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
 
-    // --- ПОДКЛЮЧЕНИЕ К СЕРВИСУ ---
     var trackingService by remember { mutableStateOf<TrackingService?>(null) }
 
     val connection = remember {
@@ -62,16 +105,16 @@ fun TrackingScreen(
             override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
                 trackingService = (service as TrackingService.LocalBinder).getService()
             }
+
             override fun onServiceDisconnected(name: ComponentName?) {
                 trackingService = null
             }
         }
     }
 
-    // Запуск и привязка
     LaunchedEffect(Unit) {
         Intent(context, TrackingService::class.java).also { intent ->
-            intent.putExtra("WEIGHT", weightKg) // Передаем вес в сервис!
+            intent.putExtra("WEIGHT", weightKg)
             intent.putExtra("HEIGHT", heightCm)
             intent.putExtra("AGE", ageYears)
 
@@ -86,23 +129,26 @@ fun TrackingScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            try { context.unbindService(connection) } catch (e: Exception) {}
+            try {
+                context.unbindService(connection)
+            } catch (_: Exception) {
+            }
         }
     }
 
-    // --- ПОДПИСКА НА ДАННЫЕ СЕРВИСА ---
-    // Теперь мы просто ЧИТАЕМ готовые данные, а не считаем их
-    val duration by trackingService?.durationSeconds?.collectAsStateWithLifecycle() ?: remember { mutableLongStateOf(0L) }
-    val distance by trackingService?.distanceMeters?.collectAsStateWithLifecycle() ?: remember { mutableFloatStateOf(0f) }
+    val duration by trackingService?.durationSeconds?.collectAsStateWithLifecycle()
+        ?: remember { mutableLongStateOf(0L) }
+    val distance by trackingService?.distanceMeters?.collectAsStateWithLifecycle()
+        ?: remember { mutableFloatStateOf(0f) }
+    val calories by trackingService?.calories?.collectAsStateWithLifecycle()
+        ?: remember { mutableFloatStateOf(0f) }
+    val steps by trackingService?.steps?.collectAsStateWithLifecycle()
+        ?: remember { mutableIntStateOf(0) }
+    val pathPoints by trackingService?.pathPoints?.collectAsStateWithLifecycle()
+        ?: remember { mutableStateOf(emptyList()) }
+    val speedKmh by trackingService?.currentSpeedKmh?.collectAsStateWithLifecycle()
+        ?: remember { mutableFloatStateOf(0f) }
 
-    // 👇 ВОТ ЗДЕСЬ МЫ БЕРЕМ КАЛОРИИ ИЗ СЕРВИСА (где вы поставили 0)
-    val calories by trackingService?.calories?.collectAsStateWithLifecycle() ?: remember { mutableFloatStateOf(0f) }
-
-    val steps by trackingService?.steps?.collectAsStateWithLifecycle() ?: remember { mutableIntStateOf(0) }
-    val pathPoints by trackingService?.pathPoints?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(emptyList()) }
-    val speedKmh by trackingService?.currentSpeedKmh?.collectAsStateWithLifecycle() ?: remember { mutableFloatStateOf(0f) }
-
-    // --- UI КАРТЫ ---
     var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
     var isSnapshotting by remember { mutableStateOf(false) }
 
@@ -116,7 +162,6 @@ fun TrackingScreen(
         }
     }
 
-    // --- ФОРМАТИРОВАНИЕ ---
     val formattedTime = remember(duration) {
         val h = duration / 3600
         val m = (duration % 3600) / 60
@@ -136,14 +181,12 @@ fun TrackingScreen(
                 }
                 path = file.absolutePath
             }
-
             trackingService?.stopService()
-
             onFinish(
                 RunResult(
                     distanceMeters = distance,
                     durationSeconds = duration,
-                    calories = calories, // Передаем то, что насчитал сервис
+                    calories = calories,
                     avgSpeedKmh = speedKmh,
                     steps = steps,
                     screenshotPath = path
@@ -152,13 +195,45 @@ fun TrackingScreen(
         }
     }
 
-    // --- UI ---
-    Box(modifier = Modifier.fillMaxSize()) {
+    val mapUi = remember {
+        MapUiSettings(
+            myLocationButtonEnabled = true,
+            zoomControlsEnabled = false,
+            compassEnabled = false,
+            mapToolbarEnabled = false,
+            indoorLevelPickerEnabled = false,
+            rotationGesturesEnabled = true,
+            scrollGesturesEnabled = true,
+            tiltGesturesEnabled = true,
+            zoomGesturesEnabled = true
+        )
+    }
+
+    val mapProps = remember { MapProperties(isMyLocationEnabled = true) }
+
+    val layoutDir = LocalLayoutDirection.current
+    val insets = WindowInsets.safeDrawing.asPaddingValues()
+    val panelSafeBottom = insets.calculateBottomPadding()
+    val mapPadding = remember(insets, layoutDir) {
+        PaddingValues(
+            start = insets.calculateStartPadding(layoutDir) + 12.dp,
+            top = insets.calculateTopPadding() + 12.dp,
+            end = insets.calculateEndPadding(layoutDir) + 12.dp,
+            bottom = panelSafeBottom + 16.dp + 220.dp
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+    ) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
-            properties = MapProperties(isMyLocationEnabled = true),
-            uiSettings = MapUiSettings(myLocationButtonEnabled = true, zoomControlsEnabled = false)
+            properties = mapProps,
+            uiSettings = mapUi,
+            contentPadding = mapPadding
         ) {
             MapEffect(Unit) { map -> googleMap = map }
             if (pathPoints.isNotEmpty()) {
@@ -166,56 +241,104 @@ fun TrackingScreen(
             }
         }
 
-        Card(
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+        GlassPanelExact(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)),
+            shape = GlassCardShape
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 18.dp)
             ) {
-                Text(formattedTime, fontSize = 56.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, letterSpacing = 2.sp)
-                Spacer(modifier = Modifier.height(20.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceAround
-                ) {
-                    StatItem(value = String.format(Locale.US, "%.2f km", distance / 1000f), label = "Distance")
-                    // 👇 Отображаем калории из сервиса
-                    StatItem(value = String.format(Locale.US, "%.1f", calories), label = "Kcal")
-                    StatItem(value = "$steps", label = "Steps")
+                val w = maxWidth
+                val timeMax = 56.sp
+                val timeMin = 36.sp
+                val timeSize = remember(w) {
+                    val t = (w.value * 0.14f).sp
+                    when {
+                        t > timeMax -> timeMax
+                        t < timeMin -> timeMin
+                        else -> t
+                    }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
 
-                // Кнопки (Пауза / Стоп)
-                val isPaused by trackingService?.isPaused?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(false) }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    AutoSizeText(
+                        text = formattedTime,
+                        maxFontSize = timeSize,
+                        minFontSize = 28.sp,
+                        style = TextStyle(
+                            fontWeight = FontWeight.Bold,
+                            color = TextMain,
+                            letterSpacing = 2.sp,
+                            textAlign = TextAlign.Center
+                        ),
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Button(
-                        onClick = {
-                            if (isPaused) trackingService?.resumeService() else trackingService?.pauseService()
-                        },
-                        modifier = Modifier.weight(1f).height(54.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
-                        shape = RoundedCornerShape(16.dp)
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround
                     ) {
-                        Text(if(isPaused) "RESUME" else "PAUSE", fontWeight = FontWeight.Bold)
+                        StatItemGlassExact(
+                            value = String.format(Locale.US, "%.2f km", distance / 1000f),
+                            label = "Distance"
+                        )
+                        StatItemGlassExact(
+                            value = String.format(Locale.US, "%.1f", calories),
+                            label = "Kcal"
+                        )
+                        StatItemGlassExact(
+                            value = "$steps",
+                            label = "Steps"
+                        )
                     }
 
-                    Button(
-                        onClick = { performStopAndSave() },
-                        enabled = !isUploading && !isSnapshotting,
-                        modifier = Modifier.weight(1f).height(54.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                        shape = RoundedCornerShape(16.dp)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    val isPaused by trackingService?.isPaused?.collectAsStateWithLifecycle()
+                        ?: remember { mutableStateOf(false) }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        if (isUploading || isSnapshotting) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                        } else {
-                            Text("FINISH", fontWeight = FontWeight.Bold)
-                        }
+                        GlassActionButtonExact(
+                            text = if (isPaused) "RESUME" else "PAUSE",
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (isPaused) trackingService?.resumeService() else trackingService?.pauseService()
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(54.dp),
+                            shape = GlassBtnShape,
+                            enabled = true,
+                            loading = false
+                        )
+
+                        GlassActionButtonExact(
+                            text = "FINISH",
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                performStopAndSave()
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(54.dp),
+                            shape = GlassBtnShape,
+                            enabled = !isUploading && !isSnapshotting,
+                            loading = isUploading || isSnapshotting
+                        )
                     }
                 }
             }
@@ -223,14 +346,247 @@ fun TrackingScreen(
     }
 }
 
-suspend fun GoogleMap.awaitSnapshot(): Bitmap? = suspendCancellableCoroutine { cont ->
-    this.snapshot { bmp -> cont.resume(bmp) }
+suspend fun GoogleMap.awaitSnapshot(): Bitmap? =
+    suspendCancellableCoroutine { cont -> this.snapshot { bmp -> cont.resume(bmp) } }
+
+@Composable
+private fun GlassPanelExact(
+    modifier: Modifier = Modifier,
+    shape: RoundedCornerShape,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val density = LocalDensity.current
+    val cornerPx = with(density) { 24.dp.toPx() }
+    val cr = CornerRadius(cornerPx, cornerPx)
+
+    Box(
+        modifier = modifier
+            .shadow(
+                elevation = 18.dp,
+                shape = shape,
+                ambientColor = ShadowColor,
+                spotColor = ShadowColor
+            )
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(PanelTop, PanelMid, PanelBot)))
+            .border(1.dp, BorderOuter, shape)
+            .drawBehind {
+                val w = size.width
+                val h = size.height
+
+                drawRoundRect(
+                    color = BorderInner,
+                    style = Stroke(width = 1.dp.toPx()),
+                    cornerRadius = cr,
+                    size = Size(w, h)
+                )
+
+                drawRoundRect(
+                    brush = Brush.verticalGradient(
+                        0f to HighlightTop,
+                        0.50f to Color.Transparent
+                    ),
+                    size = Size(w, h),
+                    cornerRadius = cr
+                )
+
+                drawLine(
+                    color = HighlightEdge,
+                    start = Offset(w * 0.08f, h * 0.18f),
+                    end = Offset(w * 0.92f, h * 0.18f),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+
+                drawLine(
+                    color = ShadeEdge,
+                    start = Offset(w * 0.10f, h * 0.86f),
+                    end = Offset(w * 0.90f, h * 0.86f),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+    ) {
+        content()
+    }
 }
 
 @Composable
-fun StatItem(value: String, label: String) {
+private fun GlassActionButtonExact(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    shape: RoundedCornerShape,
+    enabled: Boolean = true,
+    loading: Boolean = false
+) {
+    val alpha = if (enabled) 1f else 0.55f
+
+    val density = LocalDensity.current
+    val cornerPx = with(density) { 16.dp.toPx() }
+    val cr = CornerRadius(cornerPx, cornerPx)
+
+    Surface(
+        modifier = modifier
+            .shadow(
+                elevation = 10.dp,
+                shape = shape,
+                ambientColor = ShadowColor,
+                spotColor = ShadowColor
+            )
+            .clip(shape),
+        shape = shape,
+        color = Color.Transparent,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Brush.verticalGradient(listOf(ButtonTop, ButtonMid, ButtonBot)))
+                .border(1.dp, BorderOuter.copy(alpha = BorderOuter.alpha * alpha), shape)
+                .drawBehind {
+                    val w = size.width
+                    val h = size.height
+
+                    drawRoundRect(
+                        color = BorderInner.copy(alpha = BorderInner.alpha * alpha),
+                        style = Stroke(width = 1.dp.toPx()),
+                        cornerRadius = cr,
+                        size = Size(w, h)
+                    )
+
+                    drawRoundRect(
+                        brush = Brush.verticalGradient(
+                            0f to HighlightTop.copy(alpha = HighlightTop.alpha * alpha),
+                            0.60f to Color.Transparent
+                        ),
+                        cornerRadius = cr,
+                        size = Size(w, h)
+                    )
+
+                    drawLine(
+                        color = HighlightEdge.copy(alpha = HighlightEdge.alpha * alpha),
+                        start = Offset(w * 0.10f, h * 0.28f),
+                        end = Offset(w * 0.90f, h * 0.28f),
+                        strokeWidth = 2.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+
+                    drawLine(
+                        color = ShadeEdge.copy(alpha = ShadeEdge.alpha * alpha),
+                        start = Offset(w * 0.12f, h * 0.82f),
+                        end = Offset(w * 0.88f, h * 0.82f),
+                        strokeWidth = 2.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            TextButton(
+                onClick = onClick,
+                enabled = enabled,
+                modifier = Modifier.fillMaxSize(),
+                shape = shape,
+                colors = ButtonDefaults.textButtonColors(
+                    containerColor = Color.Transparent,
+                    contentColor = TextMain
+                ),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                if (loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        color = Color.White.copy(alpha = 0.85f),
+                        strokeWidth = 2.5.dp
+                    )
+                } else {
+                    Text(
+                        text = text,
+                        fontWeight = FontWeight.Bold,
+                        color = TextMain.copy(alpha = TextMain.alpha * alpha),
+                        letterSpacing = 0.6.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatItemGlassExact(value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text(text = label, fontSize = 12.sp, color = Color.Gray)
+        AutoSizeText(
+            text = value,
+            maxFontSize = 22.sp,
+            minFontSize = 14.sp,
+            style = TextStyle(fontWeight = FontWeight.Bold, color = ValueText),
+            maxLines = 1
+        )
+        Text(text = label, fontSize = 12.sp, color = TextSub, maxLines = 1)
+    }
+}
+
+@Composable
+private fun AutoSizeText(
+    text: String,
+    maxFontSize: androidx.compose.ui.unit.TextUnit,
+    minFontSize: androidx.compose.ui.unit.TextUnit,
+    style: TextStyle,
+    maxLines: Int,
+    modifier: Modifier = Modifier
+) {
+    SubcomposeLayout(modifier = modifier) { constraints ->
+        val fixedWidth = constraints.minWidth == constraints.maxWidth
+        val targetW = if (fixedWidth) constraints.maxWidth.coerceAtLeast(0) else constraints.maxWidth.coerceAtLeast(0)
+
+        fun fits(fontSize: androidx.compose.ui.unit.TextUnit): Boolean {
+            val p = subcompose("m:${fontSize.value}") {
+                Text(
+                    text = text,
+                    style = style.copy(fontSize = fontSize),
+                    maxLines = maxLines,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip,
+                    textAlign = style.textAlign ?: TextAlign.Start
+                )
+            }[0].measure(Constraints(maxWidth = Constraints.Infinity, maxHeight = constraints.maxHeight))
+            return if (fixedWidth) p.width <= targetW else true
+        }
+
+        var lo = minFontSize.value
+        var hi = maxFontSize.value
+        var best = lo
+        var i = 0
+        while (i < 18) {
+            val mid = (lo + hi) / 2f
+            if (fits(mid.sp)) {
+                best = mid
+                lo = mid
+            } else {
+                hi = mid
+            }
+            i++
+        }
+
+        val placeable = subcompose("final") {
+            Text(
+                text = text,
+                style = style.copy(fontSize = best.sp),
+                maxLines = maxLines,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
+                textAlign = style.textAlign ?: TextAlign.Start
+            )
+        }[0].measure(constraints.copy(minWidth = 0))
+
+        val layoutW = if (fixedWidth) targetW else placeable.width
+        val x = if (fixedWidth) ((layoutW - placeable.width) / 2).coerceAtLeast(0) else 0
+
+        layout(layoutW, placeable.height) {
+            placeable.place(x, 0)
+        }
     }
 }

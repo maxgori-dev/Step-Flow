@@ -53,27 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
-import kotlin.math.min
-
-enum class AppLanguage(val label: String) {
-    System("System"),
-    English("English"),
-    Russian("Русский"),
-    Polish("Polski")
-}
-
-enum class Units(val label: String) {
-    Metric("Metric (cm/kg)"),
-    Imperial("Imperial (ft/lb)")
-}
-
-enum class AppTheme(val label: String) {
-    System("System"),
-    Light("Light"),
-    Dark("Dark")
-}
 
 @Composable
 fun SettingsScreen(
@@ -88,7 +68,7 @@ fun SettingsScreen(
     onThemeChange: (AppTheme) -> Unit,
     onFontScaleChange: (Float) -> Unit,
     onNotificationsChange: (Boolean) -> Unit,
-    onGoalsClick: () -> Unit, // 👈 НОВЫЙ ПАРАМЕТР
+    onGoalsClick: () -> Unit,
     onBack: () -> Unit,
     onSave: () -> Unit
 ) {
@@ -96,13 +76,17 @@ fun SettingsScreen(
     val title = Color(0xFF111111)
     val hint = Color(0xFF6F747C)
 
+    // ✅ язык меняем "черновиком", реально применяем только на Save (без мерцания/recreate-loop)
+    var languageDraft by remember(language) { mutableStateOf(language) }
+
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(bg)
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        val minDim = min(maxWidth, maxHeight)
+        // ✅ без min() импортов → без "overload ambiguity"
+        val minDim = if (maxWidth < maxHeight) maxWidth else maxHeight
         val uiScale = (minDim / 390.dp).coerceIn(0.82f, 1.20f)
 
         val padH = 16.dp * uiScale
@@ -121,7 +105,10 @@ fun SettingsScreen(
                         .padding(horizontal = padH, vertical = bottomBarPad)
                 ) {
                     Button(
-                        onClick = onSave,
+                        onClick = {
+                            if (languageDraft != language) onLanguageChange(languageDraft)
+                            onSave()
+                        },
                         shape = RoundedCornerShape(18.dp * uiScale),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -152,7 +139,6 @@ fun SettingsScreen(
             ) {
                 item { Spacer(Modifier.height(8.dp * uiScale)) }
 
-                // Top bar
                 item {
                     Row(
                         modifier = Modifier
@@ -189,7 +175,6 @@ fun SettingsScreen(
                     )
                 }
 
-                // ===== GOALS (НОВАЯ СЕКЦИЯ) =====
                 item { SectionTitle(text = "GOALS", scale = uiScale) }
                 item {
                     SettingsCard(scale = uiScale) {
@@ -197,14 +182,14 @@ fun SettingsScreen(
                             scale = uiScale,
                             title = "Daily Goals",
                             subtitle = "Steps, duration & calories",
-                            icon = Icons.Outlined.Flag, // Убедитесь, что иконка импортирована
+                            icon = Icons.Outlined.Flag,
                             onClick = onGoalsClick
                         )
                     }
                 }
+
                 item { Spacer(Modifier.height(16.dp * uiScale)) }
 
-                // ===== GENERAL =====
                 item { SectionTitle(text = "GENERAL", scale = uiScale) }
                 item {
                     SettingsCard(scale = uiScale) {
@@ -213,10 +198,10 @@ fun SettingsScreen(
                             title = "Language",
                             subtitle = "Choose app language",
                             icon = Icons.Outlined.Language,
-                            valueText = language.label,
-                            options = AppLanguage.values().toList(),
+                            valueText = languageDraft.label,
+                            options = AppLanguage.entries.toList(),
                             optionLabel = { it.label },
-                            onSelect = onLanguageChange
+                            onSelect = { picked -> languageDraft = picked }
                         )
 
                         DividerSoft(scale = uiScale)
@@ -227,7 +212,7 @@ fun SettingsScreen(
                             subtitle = "Measurement system",
                             icon = Icons.Outlined.Straighten,
                             valueText = units.label,
-                            options = Units.values().toList(),
+                            options = Units.entries.toList(),
                             optionLabel = { it.label },
                             onSelect = onUnitsChange
                         )
@@ -236,7 +221,6 @@ fun SettingsScreen(
 
                 item { Spacer(Modifier.height(16.dp * uiScale)) }
 
-                // ===== APPEARANCE =====
                 item { SectionTitle(text = "APPEARANCE", scale = uiScale) }
                 item {
                     SettingsCard(scale = uiScale) {
@@ -246,7 +230,7 @@ fun SettingsScreen(
                             subtitle = "Light / Dark / System",
                             icon = Icons.Outlined.Palette,
                             valueText = theme.label,
-                            options = AppTheme.values().toList(),
+                            options = AppTheme.entries.toList(),
                             optionLabel = { it.label },
                             onSelect = onThemeChange
                         )
@@ -273,7 +257,6 @@ fun SettingsScreen(
 
                 item { Spacer(Modifier.height(16.dp * uiScale)) }
 
-                // ===== NOTIFICATIONS =====
                 item { SectionTitle(text = "NOTIFICATIONS", scale = uiScale) }
                 item {
                     SettingsCard(scale = uiScale) {

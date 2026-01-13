@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -90,6 +91,23 @@ fun HomeScreenNow(
     var tab by remember { mutableStateOf(HomeTab.Home) }
     val haptics = LocalHapticFeedback.current
     val pageBg = Brush.verticalGradient(listOf(bg, soft))
+
+    // ✅ локализованные строки (один раз тут)
+    val appTitle = stringResource(R.string.home_app_title)
+    val quickActions = stringResource(R.string.home_quick_actions)
+
+    val tileCalendar = stringResource(R.string.home_tile_calendar)
+    val tileHistory = stringResource(R.string.home_tile_history)
+    val tileAwards = stringResource(R.string.home_tile_awards)
+
+    val runText = stringResource(R.string.home_run)
+
+    val navCalendar = stringResource(R.string.home_nav_calendar)
+    val navHome = stringResource(R.string.home_nav_home)
+    val navProfile = stringResource(R.string.home_nav_profile)
+
+    val cdProfile = stringResource(R.string.cd_profile)
+    val cdSettings = stringResource(R.string.cd_settings)
 
     BoxWithConstraints(
         modifier = modifier
@@ -131,7 +149,7 @@ fun HomeScreenNow(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "StepFlow",
+                        text = appTitle,
                         fontSize = (22.sp * uiScale),
                         fontWeight = FontWeight.SemiBold,
                         color = textMain
@@ -153,7 +171,7 @@ fun HomeScreenNow(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Person,
-                                contentDescription = "Profile",
+                                contentDescription = cdProfile,
                                 tint = textMain,
                                 modifier = Modifier.size(22.dp * uiScale)
                             )
@@ -171,7 +189,7 @@ fun HomeScreenNow(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Settings,
-                                contentDescription = "Settings",
+                                contentDescription = cdSettings,
                                 tint = textMain,
                                 modifier = Modifier.size(22.dp * uiScale)
                             )
@@ -191,6 +209,7 @@ fun HomeScreenNow(
                         scale = uiScale,
                         ring1 = ring1,
                         ring2 = ring2,
+                        runText = runText,
                         onClick = {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             onRunClick()
@@ -201,7 +220,7 @@ fun HomeScreenNow(
                 Spacer(Modifier.height(gapL))
 
                 Text(
-                    text = "Quick actions",
+                    text = quickActions,
                     fontSize = (13.sp * uiScale),
                     color = textSoft,
                     modifier = Modifier.padding(start = 6.dp * uiScale, bottom = 10.dp * uiScale)
@@ -219,7 +238,7 @@ fun HomeScreenNow(
                             .semantics { contentDescription = "bp_tile_calendar" },
                         scale = uiScale,
                         icon = Icons.Outlined.CalendarToday,
-                        label = "Calendar",
+                        label = tileCalendar,
                         onClick = {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             onTileCalendar()
@@ -232,7 +251,7 @@ fun HomeScreenNow(
                             .aspectRatio(1.05f),
                         scale = uiScale,
                         icon = Icons.Outlined.History,
-                        label = "History",
+                        label = tileHistory,
                         onClick = {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             onTileHistory()
@@ -245,7 +264,7 @@ fun HomeScreenNow(
                             .aspectRatio(1.05f),
                         scale = uiScale,
                         icon = Icons.Outlined.EmojiEvents,
-                        label = "Awards",
+                        label = tileAwards,
                         onClick = {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             onTileAchievements()
@@ -266,6 +285,11 @@ fun HomeScreenNow(
                 activeTab = tab,
                 inactiveColor = navInactive,
                 activeColor = navActive,
+                labels = BottomLabels(
+                    calendar = navCalendar,
+                    home = navHome,
+                    profile = navProfile
+                ),
                 onSelect = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     tab = it
@@ -276,6 +300,12 @@ fun HomeScreenNow(
     }
 }
 
+private data class BottomLabels(
+    val calendar: String,
+    val home: String,
+    val profile: String
+)
+
 @Composable
 private fun RunRing(
     wrapSize: Dp,
@@ -283,6 +313,7 @@ private fun RunRing(
     scale: Float,
     ring1: Color,
     ring2: Color,
+    runText: String,
     onClick: () -> Unit
 ) {
     Box(
@@ -343,7 +374,7 @@ private fun RunRing(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "RUN",
+                text = runText,
                 fontSize = (18.sp * scale),
                 fontWeight = FontWeight.Bold,
                 letterSpacing = (3.sp * scale),
@@ -414,6 +445,7 @@ private fun BottomNav(
     activeTab: HomeTab,
     inactiveColor: Color,
     activeColor: Color,
+    labels: BottomLabels,
     onSelect: (HomeTab) -> Unit
 ) {
     val shape = RoundedCornerShape(26.dp * scale)
@@ -437,19 +469,18 @@ private fun BottomNav(
             BottomItem(
                 modifier = Modifier.weight(1f),
                 scale = scale,
-                label = "Calendar",
+                label = labels.calendar,
                 icon = Icons.Outlined.CalendarToday,
                 selected = activeTab == HomeTab.Calendar,
                 inactive = inactiveColor,
                 active = activeColor,
-                // ✅ optional: stable hooks (не обязательно, но полезно)
                 baselineId = "bp_tab_calendar"
             ) { onSelect(HomeTab.Calendar) }
 
             BottomItem(
                 modifier = Modifier.weight(1f),
                 scale = scale,
-                label = "Home",
+                label = labels.home,
                 icon = Icons.Outlined.Home,
                 selected = activeTab == HomeTab.Home,
                 inactive = inactiveColor,
@@ -460,12 +491,11 @@ private fun BottomNav(
             BottomItem(
                 modifier = Modifier.weight(1f),
                 scale = scale,
-                label = "Profile",
+                label = labels.profile,
                 icon = Icons.Outlined.Person,
                 selected = activeTab == HomeTab.Profile,
                 inactive = inactiveColor,
                 active = activeColor,
-                // ✅ Baseline: profile tab target
                 baselineId = "bp_tab_profile"
             ) { onSelect(HomeTab.Profile) }
         }
@@ -490,7 +520,7 @@ private fun BottomItem(
 
     Column(
         modifier = modifier
-            .semantics { contentDescription = baselineId }
+            .semantics { contentDescription = baselineId } // ✅ не локализуем (id для тестов)
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp * scale),
         horizontalAlignment = Alignment.CenterHorizontally,
