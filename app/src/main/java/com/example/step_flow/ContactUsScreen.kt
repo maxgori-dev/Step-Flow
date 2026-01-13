@@ -7,16 +7,22 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -28,23 +34,47 @@ import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 @Composable
 fun ContactUsScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit
 ) {
+    // --------- Adaptive sizing (auto-resize) ----------
+    val cfg = LocalConfiguration.current
+    val compactH = cfg.screenHeightDp < 700
+    val compactW = cfg.screenWidthDp < 390
+
+    val pageHPad = if (compactW) 14.dp else 16.dp
+    val topGap = if (compactH) 6.dp else 8.dp
+    val sectionGap = if (compactH) 14.dp else 16.dp
+    val titleSize = if (compactW) 19.sp else 20.sp
+    val hintSize = if (compactW) 12.sp else 13.sp
+    val cardShadow = if (compactH) 4.dp else 6.dp
+    val cardRadius = if (compactW) 20.dp else 22.dp
+
+    // --------- Colors ----------
     val bg = Color.White
     val title = Color(0xFF111111)
     val hint = Color(0xFF6F747C)
@@ -79,174 +109,270 @@ fun ContactUsScreen(
     }
 
     val ctx = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    val snack = remember { SnackbarHostState() }
 
-    Scaffold(containerColor = bg) { inner ->
-        Column(
+    fun strongFeedback(message: String) {
+        // "Strong" feedback: haptic + snackbar
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        scope.launch { snack.showSnackbar(message) }
+    }
+
+    Scaffold(
+        containerColor = bg,
+        snackbarHost = { SnackbarHost(hostState = snack) },
+        contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.ime)
+    ) { inner ->
+        LazyColumn(
             modifier = modifier
                 .fillMaxSize()
                 .background(bg)
-                .padding(inner)
-                .padding(horizontal = 16.dp)
+                .padding(inner),
+            contentPadding = WindowInsets.systemBars
+                .union(WindowInsets.ime)
+                .asPaddingValues(),
         ) {
-            Spacer(Modifier.height(8.dp))
+            item { Spacer(Modifier.height(topGap)) }
 
             // Top bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "Back",
-                        tint = title
-                    )
-                }
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = "Contact us",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = title
-                )
-            }
-
-            Spacer(Modifier.height(6.dp))
-
-            Text(
-                text = "We usually reply within 24–48 hours.",
-                fontSize = 13.sp,
-                color = hint,
-                modifier = Modifier.padding(start = 6.dp, bottom = 12.dp)
-            )
-
-            // Contact card
-            SoftCard(
-                bg = cardBg,
-                stroke = stroke,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                SectionTitle("CONTACT", hint)
-
-                ContactRow(
-                    icon = Icons.Outlined.Email,
-                    title = "Email",
-                    value = email,
-                    onClick = { openEmail(ctx, email, "StepFlow — Support", baseMessage) }
-                )
-
-                DividerLine(stroke)
-
-                ContactRow(
-                    icon = Icons.Outlined.Phone,
-                    title = "Phone",
-                    value = phone,
-                    onClick = { openDialer(ctx, phone) }
-                )
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // Developers card
-            SoftCard(
-                bg = cardBg,
-                stroke = stroke,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                SectionTitle("DEVELOPERS", hint)
-
-                DevRow(name = "Yehor Myroshnychenko")
-                DividerLine(stroke)
-                DevRow(name = "Ivan Pashyn")
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // Message template
-            SoftCard(
-                bg = cardBg,
-                stroke = stroke,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = pageHPad)
+                        .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Send,
-                        contentDescription = null,
-                        tint = title
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Message template",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = title
-                        )
-                        Text(
-                            text = "Tap to copy and paste into email",
-                            fontSize = 12.sp,
-                            color = hint
-                        )
-                    }
-
                     IconButton(
-                        onClick = { copyToClipboard(ctx, "StepFlow message", baseMessage) }
+                        onClick = {
+                            strongFeedback("Back")
+                            onBack()
+                        }
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.ContentCopy,
-                            contentDescription = "Copy",
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = "Back",
                             tint = title
                         )
                     }
-                }
-
-                Spacer(Modifier.height(10.dp))
-
-                Surface(
-                    color = Color.White.copy(alpha = 0.75f),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
+                    Spacer(Modifier.width(6.dp))
                     Text(
-                        text = baseMessage,
-                        fontSize = 12.sp,
-                        color = Color(0xFF2A2D33),
-                        lineHeight = 18.sp,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp)
-                            .clickable {
-                                copyToClipboard(ctx, "StepFlow message", baseMessage)
-                            }
+                        text = "Contact us",
+                        fontSize = titleSize,
+                        fontWeight = FontWeight.SemiBold,
+                        color = title
                     )
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
+            item { Spacer(Modifier.height(4.dp)) }
+
+            item {
+                Text(
+                    text = "We usually reply within 24–48 hours.",
+                    fontSize = hintSize,
+                    color = hint,
+                    modifier = Modifier
+                        .padding(horizontal = pageHPad)
+                        .padding(start = 6.dp, bottom = 12.dp)
+                )
+            }
+
+            // Contact card
+            item {
+                SoftCard(
+                    bg = cardBg,
+                    stroke = stroke,
+                    radius = cardRadius,
+                    shadow = cardShadow,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = pageHPad)
+                ) {
+                    SectionTitle("CONTACT", hint)
+
+                    ContactRow(
+                        icon = Icons.Outlined.Email,
+                        title = "Email",
+                        value = email,
+                        onClick = {
+                            strongFeedback("Opening email…")
+                            openEmail(ctx, email, "StepFlow — Support", baseMessage)
+                        }
+                    )
+
+                    DividerLine(stroke)
+
+                    ContactRow(
+                        icon = Icons.Outlined.Phone,
+                        title = "Phone",
+                        value = phone,
+                        onClick = {
+                            strongFeedback("Opening dialer…")
+                            openDialer(ctx, phone)
+                        }
+                    )
+                }
+            }
+
+            item { Spacer(Modifier.height(sectionGap)) }
+
+            // Developers card
+            item {
+                SoftCard(
+                    bg = cardBg,
+                    stroke = stroke,
+                    radius = cardRadius,
+                    shadow = cardShadow,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = pageHPad)
+                ) {
+                    SectionTitle("DEVELOPERS", hint)
+
+                    DevRow(name = "Yehor Myroshnychenko")
+                    DividerLine(stroke)
+                    DevRow(name = "Ivan Pashyn")
+                }
+            }
+
+            item { Spacer(Modifier.height(sectionGap)) }
+
+            // Message template
+            item {
+                val expanded = rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+
+                SoftCard(
+                    bg = cardBg,
+                    stroke = stroke,
+                    radius = cardRadius,
+                    shadow = cardShadow,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = pageHPad)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Send,
+                            contentDescription = null,
+                            tint = title
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Message template",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = title
+                            )
+                            Text(
+                                text = if (expanded.value) "Tap text to copy • Tap title to collapse"
+                                else "Tap title to expand • Tap copy to clipboard",
+                                fontSize = 12.sp,
+                                color = hint
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                copyToClipboard(ctx, "StepFlow message", baseMessage)
+                                strongFeedback("Copied to clipboard")
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ContentCopy,
+                                contentDescription = "Copy",
+                                tint = title
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    // Tap row to expand/collapse (auto-resize without losing layout)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(bounded = true),
+                            ) {
+                                expanded.value = !expanded.value
+                                strongFeedback(if (expanded.value) "Expanded" else "Collapsed")
+                            }
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (expanded.value) "Tap here to collapse"
+                            else "Tap here to preview full template",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = title.copy(alpha = 0.65f)
+                        )
+                    }
+
+                    Surface(
+                        color = Color.White.copy(alpha = 0.75f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        // If not expanded, show a shorter preview that fits small screens.
+                        val shownText = if (expanded.value) baseMessage else baseMessage.lines()
+                            .take(10)
+                            .joinToString("\n")
+                            .trimEnd() + "\n\n…"
+
+                        Text(
+                            text = shownText,
+                            fontSize = 12.sp,
+                            color = Color(0xFF2A2D33),
+                            lineHeight = 18.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = ripple(bounded = true)
+                                ) {
+                                    copyToClipboard(ctx, "StepFlow message", baseMessage)
+                                    strongFeedback("Copied to clipboard")
+                                }
+                        )
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(18.dp)) }
         }
     }
-}
 
+    // Optional: show a tiny “ready” feedback once when screen opens (feel free to remove)
+    LaunchedEffect(Unit) {
+        // nothing by default; keep clean
+    }
+}
 
 @Composable
 private fun SoftCard(
     bg: Color,
     stroke: Color,
+    radius: androidx.compose.ui.unit.Dp,
+    shadow: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    val shape = RoundedCornerShape(22.dp)
+    val shape = RoundedCornerShape(radius)
 
     Surface(
         modifier = modifier,
         color = bg,
         shape = shape,
         tonalElevation = 0.dp,
-        shadowElevation = 6.dp
+        shadowElevation = shadow
     ) {
         Column(
             modifier = Modifier
@@ -282,7 +408,11 @@ private fun ContactRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = true),
+                onClick = onClick
+            )
             .padding(horizontal = 6.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -351,7 +481,6 @@ private fun DividerLine(color: Color) {
             .background(color)
     )
 }
-
 
 private fun openEmail(context: Context, email: String, subject: String, body: String) {
     val intent = Intent(Intent.ACTION_SENDTO).apply {

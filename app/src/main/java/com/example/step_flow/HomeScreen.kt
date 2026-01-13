@@ -94,7 +94,6 @@ fun HomeScreenNow(
 
     // ✅ локализованные строки (один раз тут)
     val appTitle = stringResource(R.string.home_app_title)
-    val quickActions = stringResource(R.string.home_quick_actions)
 
     val tileCalendar = stringResource(R.string.home_tile_calendar)
     val tileHistory = stringResource(R.string.home_tile_history)
@@ -108,6 +107,12 @@ fun HomeScreenNow(
 
     val cdProfile = stringResource(R.string.cd_profile)
     val cdSettings = stringResource(R.string.cd_settings)
+
+    // ✅ "Today"
+    val todayTitle = stringResource(R.string.home_today_title)
+    val todaySteps = stringResource(R.string.home_today_steps)
+    val todayActive = stringResource(R.string.home_today_active)
+    val todayCalories = stringResource(R.string.home_today_calories)
 
     BoxWithConstraints(
         modifier = modifier
@@ -217,14 +222,20 @@ fun HomeScreenNow(
                     )
                 }
 
-                Spacer(Modifier.height(gapL))
+                Spacer(Modifier.height(14.dp * uiScale))
 
-                Text(
-                    text = quickActions,
-                    fontSize = (13.sp * uiScale),
-                    color = textSoft,
-                    modifier = Modifier.padding(start = 6.dp * uiScale, bottom = 10.dp * uiScale)
+                TodaySummary(
+                    modifier = Modifier.fillMaxWidth(),
+                    scale = uiScale,
+                    title = todayTitle,
+                    stepsLabel = todaySteps,
+                    activeLabel = todayActive,
+                    caloriesLabel = todayCalories
                 )
+
+                // ✅ ВАРИАНТ 1: убрали надпись "Quick actions" полностью.
+                // Оставили небольшой отступ, чтобы блоки визуально читались.
+                Spacer(Modifier.height(16.dp * uiScale))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -307,6 +318,148 @@ private data class BottomLabels(
 )
 
 @Composable
+private fun TodaySummary(
+    modifier: Modifier,
+    scale: Float,
+    title: String,
+    stepsLabel: String,
+    activeLabel: String,
+    caloriesLabel: String
+) {
+    val textMain = Color(0xFF111111)
+    val textSoft = Color(0xFF6F747C)
+    val card = Color.White
+    val chipBg = Color(0xFFF3F5F8)
+
+    // ⚠️ Заглушки
+    val stepsValue = "3 420 / 8 000"
+    val activeValue = "32 min"
+    val caloriesValue = "210 kcal"
+    val progress = 3420f / 8000f
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(22.dp * scale),
+        color = card,
+        tonalElevation = 0.dp,
+        shadowElevation = 8.dp * scale
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    fontSize = (14.sp * scale),
+                    fontWeight = FontWeight.SemiBold,
+                    color = textMain
+                )
+
+                Spacer(Modifier.weight(1f))
+
+                Text(
+                    text = "${(progress * 100).toInt()}%",
+                    fontSize = (13.sp * scale),
+                    fontWeight = FontWeight.SemiBold,
+                    color = textSoft
+                )
+            }
+
+            Spacer(Modifier.height(10.dp * scale))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(10.dp * scale)
+                    .clip(RoundedCornerShape(99.dp))
+                    .background(Color(0xFFE9EDF2))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(Color(0xFFB8E36A), Color(0xFF35B25C))
+                            )
+                        )
+                )
+            }
+
+            Spacer(Modifier.height(12.dp * scale))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp * scale)
+            ) {
+                StatChip(
+                    modifier = Modifier.weight(1f),
+                    scale = scale,
+                    bg = chipBg,
+                    label = stepsLabel,
+                    value = stepsValue
+                )
+                StatChip(
+                    modifier = Modifier.weight(1f),
+                    scale = scale,
+                    bg = chipBg,
+                    label = activeLabel,
+                    value = activeValue
+                )
+                StatChip(
+                    modifier = Modifier.weight(1f),
+                    scale = scale,
+                    bg = chipBg,
+                    label = caloriesLabel,
+                    value = caloriesValue
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatChip(
+    modifier: Modifier,
+    scale: Float,
+    bg: Color,
+    label: String,
+    value: String
+) {
+    val textMain = Color(0xFF111111)
+    val textSoft = Color(0xFF6F747C)
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp * scale))
+            .background(bg)
+            .padding(horizontal = 10.dp * scale, vertical = 10.dp * scale)
+    ) {
+        Column(horizontalAlignment = Alignment.Start) {
+            Text(
+                text = label,
+                fontSize = (11.sp * scale),
+                fontWeight = FontWeight.Medium,
+                color = textSoft
+            )
+            Spacer(Modifier.height(4.dp * scale))
+            Text(
+                text = value,
+                fontSize = (12.sp * scale),
+                fontWeight = FontWeight.SemiBold,
+                color = textMain
+            )
+        }
+    }
+}
+
+@Composable
 private fun RunRing(
     wrapSize: Dp,
     coreSize: Dp,
@@ -362,7 +515,6 @@ private fun RunRing(
             )
         }
 
-        // ✅ Baseline: RUN button target
         Box(
             modifier = Modifier
                 .size(coreSize)
@@ -520,7 +672,7 @@ private fun BottomItem(
 
     Column(
         modifier = modifier
-            .semantics { contentDescription = baselineId } // ✅ не локализуем (id для тестов)
+            .semantics { contentDescription = baselineId }
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp * scale),
         horizontalAlignment = Alignment.CenterHorizontally,
