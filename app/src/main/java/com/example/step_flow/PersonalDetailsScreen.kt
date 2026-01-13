@@ -32,6 +32,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -40,7 +41,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -61,9 +61,11 @@ fun PersonalDetailsScreen(
     onBack: () -> Unit,
     onSave: () -> Unit
 ) {
-    val bg = Color(0xFFF5F6F8)
-    val title = Color(0xFF111111)
-    val hint = Color(0xFF6F747C)
+    // ✅ Theme Colors
+    val bg = MaterialTheme.colorScheme.background
+    val title = MaterialTheme.colorScheme.onBackground
+    val hint = MaterialTheme.colorScheme.onSurfaceVariant
+    val cardBg = MaterialTheme.colorScheme.surface
 
     val insets = WindowInsets.safeDrawing.asPaddingValues()
     val layoutDir = LocalLayoutDirection.current
@@ -73,7 +75,6 @@ fun PersonalDetailsScreen(
     val topPad = insets.calculateTopPadding()
     val bottomPad = insets.calculateBottomPadding()
 
-    val minDim = 390.dp
     val uiScale = 1f
 
     val cardShape = RoundedCornerShape(22.dp * uiScale)
@@ -127,7 +128,7 @@ fun PersonalDetailsScreen(
 
         Surface(
             shape = cardShape,
-            color = Color.White,
+            color = cardBg, // ✅ Adaptive
             shadowElevation = 6.dp * uiScale,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -196,8 +197,8 @@ fun PersonalDetailsScreen(
                 .fillMaxWidth()
                 .height(buttonH),
             colors = ButtonDefaults.buttonColors(
-                containerColor = title,
-                contentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.primary, // ✅ Adaptive
+                contentColor = MaterialTheme.colorScheme.onPrimary // ✅ Adaptive
             )
         ) {
             Text(
@@ -223,12 +224,19 @@ private fun DetailField(
     keyboardType: KeyboardType,
     onValueChange: (String) -> Unit
 ) {
+    // ✅ Adaptive Field Colors
+    val fieldBg = MaterialTheme.colorScheme.background
+    val fieldBorder = MaterialTheme.colorScheme.secondaryContainer
+    val primary = MaterialTheme.colorScheme.primary
+    val textMain = MaterialTheme.colorScheme.onSurface
+    val textLabel = MaterialTheme.colorScheme.onSurfaceVariant
+
     Column(Modifier.fillMaxWidth()) {
         Text(
             text = title.uppercase(),
             fontSize = (12.sp * scale),
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF8E9097),
+            color = textLabel,
             modifier = Modifier.padding(start = 2.dp * scale, bottom = 8.dp * scale)
         )
 
@@ -237,7 +245,7 @@ private fun DetailField(
             onValueChange = onValueChange,
             singleLine = true,
             leadingIcon = {
-                CompositionLocalProvider(LocalContentColor provides Color(0xFF111111)) {
+                CompositionLocalProvider(LocalContentColor provides textMain) {
                     leading()
                 }
             },
@@ -245,21 +253,23 @@ private fun DetailField(
                 if (!suffix.isNullOrBlank()) {
                     Text(
                         text = suffix,
-                        color = Color(0xFF8E9097),
+                        color = textLabel,
                         fontSize = (13.sp * scale),
                         fontWeight = FontWeight.Medium
                     )
                 }
             },
-            placeholder = { Text(placeholder) },
+            placeholder = { Text(placeholder, color = textLabel.copy(alpha = 0.5f)) },
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             shape = shape,
             colors = OutlinedTextFieldDefaults.colors(
-                unfocusedContainerColor = Color(0xFFF7F8FB),
-                focusedContainerColor = Color(0xFFF7F8FB),
-                unfocusedBorderColor = Color(0xFFE6E8EE),
-                focusedBorderColor = Color(0xFF111111),
-                cursorColor = Color(0xFF111111)
+                unfocusedContainerColor = fieldBg,
+                focusedContainerColor = fieldBg,
+                unfocusedBorderColor = fieldBorder,
+                focusedBorderColor = primary,
+                cursorColor = primary,
+                focusedTextColor = textMain,
+                unfocusedTextColor = textMain
             ),
             modifier = Modifier.fillMaxWidth()
         )
@@ -273,7 +283,7 @@ private fun DividerSoft(scale: Float) {
             .fillMaxWidth()
             .padding(vertical = 14.dp * scale)
             .height((1.dp * scale).coerceAtLeast(1.dp))
-            .background(Color(0xFFE9EAEE))
+            .background(MaterialTheme.colorScheme.secondaryContainer) // ✅ Adaptive
     )
 }
 

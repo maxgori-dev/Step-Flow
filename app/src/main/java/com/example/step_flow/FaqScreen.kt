@@ -2,6 +2,7 @@ package com.example.step_flow
 
 import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -30,14 +31,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -81,9 +83,10 @@ fun FaqScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit
 ) {
-    val bg = Color.White
-    val title = Color(0xFF111111)
-    val hint = Color(0xFF6F747C)
+    // ✅ Theme Colors
+    val bg = MaterialTheme.colorScheme.background
+    val title = MaterialTheme.colorScheme.onBackground
+    val hint = MaterialTheme.colorScheme.onSurfaceVariant
 
     val faqs = remember {
         listOf(
@@ -209,7 +212,7 @@ fun FaqScreen(
                     text = "FAQ",
                     fontSize = 64.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = title,
+                    color = title, // ✅ Adaptive
                     letterSpacing = 1.2.sp
                 )
 
@@ -260,7 +263,7 @@ fun FaqScreen(
                         text = "Scroll to pick a question",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = hint,
+                        color = hint, // ✅ Adaptive
                         letterSpacing = 0.6.sp,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -304,13 +307,13 @@ private fun AnswerButton(
             .padding(bottom = 14.dp)
             .height(54.dp)
             .clip(shape)
-            .background(Color(0xFF111111))
+            .background(MaterialTheme.colorScheme.primary) // ✅ Adaptive Primary
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = "View answer",
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onPrimary, // ✅ Adaptive OnPrimary
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 0.2.sp
@@ -327,8 +330,11 @@ private fun FaqPillFullscreen(
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(999.dp)
-    val bg = if (active) Color(0xFF111111) else Color(0xFFF1F3F7).copy(alpha = 0.70f)
-    val fg = if (active) Color.White else Color(0xFF111111).copy(alpha = 0.75f)
+
+    // ✅ Adaptive colors for pills
+    // Active: Primary, Inactive: SecondaryContainer
+    val bg = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.70f)
+    val fg = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
 
     Box(
         modifier = Modifier
@@ -398,17 +404,22 @@ private fun AnswerOverlayFullscreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.16f))
+                    .background(Color.Black.copy(alpha = 0.35f))
             )
 
             val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+
+            // ✅ Sheet Background adapted to theme
+            val sheetBg = MaterialTheme.colorScheme.surface
+            val onSheet = MaterialTheme.colorScheme.onSurface
+            val onSheetVar = MaterialTheme.colorScheme.onSurfaceVariant
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .align(Alignment.BottomCenter)
                     .clip(shape)
-                    .background(Color.White.copy(alpha = 0.86f))
+                    .background(sheetBg.copy(alpha = 0.96f)) // Slightly opaque surface
                     .padding(horizontal = 18.dp, vertical = 16.dp)
                     .statusBarsPadding()
                     .imePadding()
@@ -420,12 +431,12 @@ private fun AnswerOverlayFullscreen(
                     Icon(
                         imageVector = Icons.Outlined.HelpOutline,
                         contentDescription = null,
-                        tint = Color(0xFF111111)
+                        tint = onSheet // ✅
                     )
                     Spacer(Modifier.width(10.dp))
                     Text(
                         text = "Answer",
-                        color = Color(0xFF111111),
+                        color = onSheet, // ✅
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp
                     )
@@ -439,7 +450,7 @@ private fun AnswerOverlayFullscreen(
                         Icon(
                             imageVector = Icons.Outlined.Close,
                             contentDescription = "Close",
-                            tint = Color(0xFF111111)
+                            tint = onSheet // ✅
                         )
                     }
                 }
@@ -448,7 +459,7 @@ private fun AnswerOverlayFullscreen(
 
                 Text(
                     text = question,
-                    color = Color(0xFF111111),
+                    color = onSheet, // ✅
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 18.sp,
                     lineHeight = 22.sp
@@ -464,7 +475,7 @@ private fun AnswerOverlayFullscreen(
                 ) {
                     Text(
                         text = answer,
-                        color = Color(0xFF6F747C),
+                        color = onSheetVar, // ✅
                         fontSize = 15.sp,
                         lineHeight = 22.sp
                     )
@@ -473,7 +484,7 @@ private fun AnswerOverlayFullscreen(
 
                 Text(
                     text = "Swipe down to close",
-                    color = Color(0xFF6F747C),
+                    color = onSheetVar, // ✅
                     fontSize = 12.sp
                 )
             }

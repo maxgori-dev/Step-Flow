@@ -8,24 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,32 +20,17 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.TextFields
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import kotlin.math.min
 
 @Composable
 fun SettingsScreen(
@@ -83,14 +51,15 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
 
-    val bg = Color(0xFFF5F6F8)
-    val title = Color(0xFF111111)
-    val hint = Color(0xFF6F747C)
+    // ✅ Theme Colors
+    val bg = MaterialTheme.colorScheme.background
+    val titleColor = MaterialTheme.colorScheme.onBackground
+    val hint = MaterialTheme.colorScheme.onSurfaceVariant
 
-    // Language is edited as a draft and applied only on Save (avoids flicker / recreate loops)
+    // Language draft
     var languageDraft by remember(language) { mutableStateOf(language) }
 
-    // Android 13+ notification permission requester
+    // Android 13+ Notification Permission
     val notifPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -110,7 +79,6 @@ fun SettingsScreen(
             return
         }
 
-        // enable == true
         if (Build.VERSION.SDK_INT >= 33) {
             val granted = ContextCompat.checkSelfPermission(
                 context,
@@ -127,7 +95,7 @@ fun SettingsScreen(
         }
     }
 
-    // If user enabled notifications, but permission is revoked in system settings — keep UI in sync
+    // Sync UI with system permission state
     LaunchedEffect(notificationsEnabled) {
         if (notificationsEnabled && Build.VERSION.SDK_INT >= 33) {
             val granted = ContextCompat.checkSelfPermission(
@@ -144,7 +112,6 @@ fun SettingsScreen(
             .background(bg)
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        // no min() import -> avoids overload ambiguity
         val minDim = if (maxWidth < maxHeight) maxWidth else maxHeight
         val uiScale = (minDim / 390.dp).coerceIn(0.82f, 1.20f)
 
@@ -173,8 +140,8 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .height(buttonH),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF111111),
-                            contentColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.primary, // ✅ Adaptive Primary
+                            contentColor = MaterialTheme.colorScheme.onPrimary // ✅ Adaptive OnPrimary
                         )
                     ) {
                         Text(
@@ -209,7 +176,7 @@ fun SettingsScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                                 contentDescription = "Back",
-                                tint = title,
+                                tint = titleColor, // ✅ Adaptive Tint
                                 modifier = Modifier.size(22.dp * uiScale)
                             )
                         }
@@ -218,7 +185,7 @@ fun SettingsScreen(
                             text = "Settings",
                             fontSize = (20.sp * uiScale),
                             fontWeight = FontWeight.SemiBold,
-                            color = title
+                            color = titleColor // ✅ Adaptive Color
                         )
                     }
                 }
@@ -229,7 +196,7 @@ fun SettingsScreen(
                     Text(
                         text = "App preferences",
                         fontSize = (14.sp * uiScale),
-                        color = hint,
+                        color = hint, // ✅ Adaptive Color
                         modifier = Modifier.padding(start = 6.dp * uiScale, bottom = 12.dp * uiScale)
                     )
                 }
@@ -336,13 +303,17 @@ fun SettingsScreen(
     }
 }
 
+// -----------------------------------------------------------
+// ✅ UPDATED HELPER COMPONENTS
+// -----------------------------------------------------------
+
 @Composable
 private fun SectionTitle(text: String, scale: Float) {
     Text(
         text = text,
         fontSize = (12.sp * scale),
         fontWeight = FontWeight.Medium,
-        color = Color(0xFF8E9097),
+        color = MaterialTheme.colorScheme.onSurfaceVariant, // ✅ Adaptive
         modifier = Modifier.padding(start = 8.dp * scale, bottom = 8.dp * scale)
     )
 }
@@ -354,7 +325,7 @@ private fun SettingsCard(
 ) {
     Surface(
         shape = RoundedCornerShape(22.dp * scale),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface, // ✅ Adaptive Card BG
         shadowElevation = 6.dp * scale,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -377,28 +348,28 @@ private fun SettingsActionRow(
             .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Color(0xFF111111), modifier = Modifier.size(22.dp * scale))
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp * scale)) // ✅
         Spacer(Modifier.width(14.dp * scale))
 
         Column(Modifier.weight(1f)) {
             Text(
                 text = title,
                 fontSize = (16.sp * scale),
-                color = Color(0xFF111111),
+                color = MaterialTheme.colorScheme.onSurface, // ✅
                 fontWeight = FontWeight.Medium
             )
             Spacer(Modifier.height(2.dp * scale))
             Text(
                 text = subtitle,
                 fontSize = (13.sp * scale),
-                color = Color(0xFF6F747C)
+                color = MaterialTheme.colorScheme.onSurfaceVariant // ✅
             )
         }
 
         Icon(
             imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
             contentDescription = null,
-            tint = Color(0xFFB0B2B8),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant, // ✅
             modifier = Modifier.size(18.dp * scale)
         )
     }
@@ -424,46 +395,47 @@ private fun <T> SettingsMenuRow(
             .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Color(0xFF111111), modifier = Modifier.size(22.dp * scale))
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp * scale)) // ✅
         Spacer(Modifier.width(14.dp * scale))
 
         Column(Modifier.weight(1f)) {
             Text(
                 text = title,
                 fontSize = (16.sp * scale),
-                color = Color(0xFF111111),
+                color = MaterialTheme.colorScheme.onSurface, // ✅
                 fontWeight = FontWeight.Medium
             )
             Spacer(Modifier.height(2.dp * scale))
             Text(
                 text = subtitle,
                 fontSize = (13.sp * scale),
-                color = Color(0xFF6F747C)
+                color = MaterialTheme.colorScheme.onSurfaceVariant // ✅
             )
         }
 
         Text(
             text = valueText,
             fontSize = (14.sp * scale),
-            color = Color(0xFF8E9097),
+            color = MaterialTheme.colorScheme.onSurfaceVariant, // ✅
             fontWeight = FontWeight.Medium
         )
         Spacer(Modifier.width(10.dp * scale))
         Icon(
             imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
             contentDescription = null,
-            tint = Color(0xFFB0B2B8),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant, // ✅
             modifier = Modifier.size(18.dp * scale)
         )
     }
 
     DropdownMenu(
         expanded = expanded,
-        onDismissRequest = { expanded = false }
+        onDismissRequest = { expanded = false },
+        containerColor = MaterialTheme.colorScheme.surface // ✅ Adaptive Menu BG
     ) {
         options.forEach { item ->
             DropdownMenuItem(
-                text = { Text(optionLabel(item)) },
+                text = { Text(optionLabel(item), color = MaterialTheme.colorScheme.onSurface) }, // ✅
                 onClick = {
                     onSelect(item)
                     expanded = false
@@ -488,27 +460,31 @@ private fun SettingsSwitchRow(
             .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Color(0xFF111111), modifier = Modifier.size(22.dp * scale))
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp * scale)) // ✅
         Spacer(Modifier.width(14.dp * scale))
 
         Column(Modifier.weight(1f)) {
             Text(
                 text = title,
                 fontSize = (16.sp * scale),
-                color = Color(0xFF111111),
+                color = MaterialTheme.colorScheme.onSurface, // ✅
                 fontWeight = FontWeight.Medium
             )
             Spacer(Modifier.height(2.dp * scale))
             Text(
                 text = subtitle,
                 fontSize = (13.sp * scale),
-                color = Color(0xFF6F747C)
+                color = MaterialTheme.colorScheme.onSurfaceVariant // ✅
             )
         }
 
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary
+            )
         )
     }
 }
@@ -530,28 +506,28 @@ private fun SettingsSliderRow(
             .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = Color(0xFF111111), modifier = Modifier.size(22.dp * scale))
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp * scale)) // ✅
             Spacer(Modifier.width(14.dp * scale))
 
             Column(Modifier.weight(1f)) {
                 Text(
                     text = title,
                     fontSize = (16.sp * scale),
-                    color = Color(0xFF111111),
+                    color = MaterialTheme.colorScheme.onSurface, // ✅
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(Modifier.height(2.dp * scale))
                 Text(
                     text = subtitle,
                     fontSize = (13.sp * scale),
-                    color = Color(0xFF6F747C)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant // ✅
                 )
             }
 
             Text(
                 text = valueLabel,
                 fontSize = (14.sp * scale),
-                color = Color(0xFF8E9097),
+                color = MaterialTheme.colorScheme.onSurfaceVariant, // ✅
                 fontWeight = FontWeight.Medium
             )
         }
@@ -561,7 +537,11 @@ private fun SettingsSliderRow(
         Slider(
             value = value.coerceIn(range.start, range.endInclusive),
             onValueChange = { onChange(it.coerceIn(range.start, range.endInclusive)) },
-            valueRange = range
+            valueRange = range,
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary, // ✅
+                activeTrackColor = MaterialTheme.colorScheme.primary // ✅
+            )
         )
     }
 }
@@ -573,6 +553,6 @@ private fun DividerSoft(scale: Float) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp * scale)
             .height((1.dp * scale).coerceAtLeast(1.dp))
-            .background(Color(0xFFE9EAEE))
+            .background(MaterialTheme.colorScheme.secondaryContainer) // ✅ Adaptive Divider
     )
 }
