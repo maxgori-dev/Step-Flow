@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,25 +48,38 @@ fun ProfileSetupScreen(
     val height = heightCm.toIntOrNull() ?: defaultHeight
     val age = ageYears.toIntOrNull() ?: defaultAge
 
+    val bg = MaterialTheme.colorScheme.background
+    val surface = MaterialTheme.colorScheme.surface
+    val onBg = MaterialTheme.colorScheme.onBackground
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val onSurfaceVar = MaterialTheme.colorScheme.onSurfaceVariant
+    val secondaryContainer = MaterialTheme.colorScheme.secondaryContainer
+    val onSecondaryContainer = MaterialTheme.colorScheme.onSecondaryContainer
+    val outlineSoft = MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
+    val primary = MaterialTheme.colorScheme.primary
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(bg)
+            .statusBarsPadding()
+            .navigationBarsPadding()
             .padding(horizontal = 24.dp)
-            .padding(top = 18.dp, bottom = 24.dp)
+            .padding(top = 12.dp, bottom = 24.dp)
     ) {
-
         Box(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "Profile setup",
                 modifier = Modifier.align(Alignment.TopStart),
                 fontSize = 26.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF111111)
+                color = onBg
             )
 
             ResetPill(
                 modifier = Modifier.align(Alignment.TopEnd),
+                container = secondaryContainer,
+                content = onSecondaryContainer,
                 onClick = {
                     onWeightChange(defaultWeight.toString())
                     onHeightChange(defaultHeight.toString())
@@ -81,68 +95,97 @@ fun ProfileSetupScreen(
             text = "Select your current weight, height and age.",
             fontSize = 15.sp,
             lineHeight = 20.sp,
-            color = Color.Black.copy(alpha = 0.55f),
+            color = onBg.copy(alpha = 0.60f),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 22.dp)
         )
 
-        Column(
+        Surface(
             modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            shape = RoundedCornerShape(24.dp),
+            color = surface,
+            shadowElevation = 10.dp
         ) {
-
-            CenterMetricBlock(
-                label = "Weight",
-                valueText = "$weight kg"
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                MinimalSlider(
-                    value = weight,
-                    min = 40,
-                    max = 120,
-                    widthFraction = 0.82f
-                ) { newValue ->
-                    if (newValue != weight) {
-                        onWeightChange(newValue.toString())
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                CenterMetricBlock(
+                    label = "Weight",
+                    valueText = "$weight kg",
+                    labelColor = onSurfaceVar,
+                    valueColor = onSurface,
+                    divider = outlineSoft
+                ) {
+                    MinimalSlider(
+                        value = weight,
+                        min = 40,
+                        max = 120,
+                        widthFraction = 1f,
+                        track = secondaryContainer,
+                        dot = onSurfaceVar.copy(alpha = 0.45f),
+                        thumb = primary,
+                        onThumb = MaterialTheme.colorScheme.onPrimary
+                    ) { newValue ->
+                        if (newValue != weight) {
+                            onWeightChange(newValue.toString())
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(26.dp))
+                Spacer(Modifier.height(22.dp))
 
-            CenterMetricBlock(
-                label = "Height (cm)",
-                valueText = "$height cm"
-            ) {
-                MinimalSlider(
-                    value = height,
-                    min = 140,
-                    max = 210,
-                    widthFraction = 0.82f
-                ) { newValue ->
-                    if (newValue != height) {
-                        onHeightChange(newValue.toString())
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                CenterMetricBlock(
+                    label = "Height (cm)",
+                    valueText = "$height cm",
+                    labelColor = onSurfaceVar,
+                    valueColor = onSurface,
+                    divider = outlineSoft
+                ) {
+                    MinimalSlider(
+                        value = height,
+                        min = 140,
+                        max = 210,
+                        widthFraction = 1f,
+                        track = secondaryContainer,
+                        dot = onSurfaceVar.copy(alpha = 0.45f),
+                        thumb = primary,
+                        onThumb = MaterialTheme.colorScheme.onPrimary
+                    ) { newValue ->
+                        if (newValue != height) {
+                            onHeightChange(newValue.toString())
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(26.dp))
+                Spacer(Modifier.height(22.dp))
 
-            CenterMetricBlock(
-                label = "Age",
-                valueText = "$age"
-            ) {
-                MinimalSlider(
-                    value = age,
-                    min = 14,
-                    max = 80,
-                    widthFraction = 0.82f
-                ) { newValue ->
-                    if (newValue != age) {
-                        onAgeChange(newValue.toString())
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                CenterMetricBlock(
+                    label = "Age",
+                    valueText = "$age",
+                    labelColor = onSurfaceVar,
+                    valueColor = onSurface,
+                    divider = Color.Transparent
+                ) {
+                    MinimalSlider(
+                        value = age,
+                        min = 14,
+                        max = 80,
+                        widthFraction = 1f,
+                        track = secondaryContainer,
+                        dot = onSurfaceVar.copy(alpha = 0.45f),
+                        thumb = primary,
+                        onThumb = MaterialTheme.colorScheme.onPrimary
+                    ) { newValue ->
+                        if (newValue != age) {
+                            onAgeChange(newValue.toString())
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
                     }
                 }
             }
@@ -157,18 +200,18 @@ fun ProfileSetupScreen(
                 .height(56.dp),
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFF3F3F3),
-                contentColor = Color.Black
+                containerColor = primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ),
             elevation = ButtonDefaults.buttonElevation(
-                defaultElevation = 8.dp,
-                pressedElevation = 4.dp
+                defaultElevation = 10.dp,
+                pressedElevation = 6.dp
             )
         ) {
             Text(
                 text = "Continue",
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
@@ -178,6 +221,9 @@ fun ProfileSetupScreen(
 private fun CenterMetricBlock(
     label: String,
     valueText: String,
+    labelColor: Color,
+    valueColor: Color,
+    divider: Color,
     content: @Composable () -> Unit
 ) {
     Column(
@@ -186,33 +232,33 @@ private fun CenterMetricBlock(
     ) {
         Text(
             text = label,
-            fontSize = 18.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF1C1C1E),
+            color = labelColor,
             textAlign = TextAlign.Center
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
 
         Text(
             text = valueText,
-            fontSize = 36.sp,
+            fontSize = 34.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF111111),
+            color = valueColor,
             textAlign = TextAlign.Center
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(14.dp))
 
         content()
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(16.dp))
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(Color(0xFFEDEDED))
+                .background(divider)
         )
     }
 }
@@ -220,26 +266,28 @@ private fun CenterMetricBlock(
 @Composable
 private fun ResetPill(
     modifier: Modifier = Modifier,
+    container: Color,
+    content: Color,
     onClick: () -> Unit
 ) {
     Surface(
         modifier = modifier
             .clip(RoundedCornerShape(999.dp))
             .clickable(onClick = onClick),
-        color = Color(0xFFF2F2F2),
-        shadowElevation = 2.dp
+        color = container,
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("↻", fontSize = 14.sp, color = Color.Gray)
+            Text("↻", fontSize = 14.sp, color = content.copy(alpha = 0.85f))
             Spacer(Modifier.width(6.dp))
             Text(
                 text = "Reset",
                 fontSize = 14.sp,
-                color = Color.Gray,
-                fontWeight = FontWeight.Medium
+                color = content.copy(alpha = 0.85f),
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
@@ -252,6 +300,10 @@ private fun MinimalSlider(
     max: Int,
     widthFraction: Float = 0.82f,
     height: Dp = 56.dp,
+    track: Color,
+    dot: Color,
+    thumb: Color,
+    onThumb: Color,
     onValueChange: (Int) -> Unit
 ) {
     val density = LocalDensity.current
@@ -267,7 +319,7 @@ private fun MinimalSlider(
             .fillMaxWidth(widthFraction)
             .height(height)
             .clip(RoundedCornerShape(999.dp))
-            .background(Color(0xFFF1F1F1))
+            .background(track)
             .pointerInput(min, max) {
                 awaitPointerEventScope {
                     while (true) {
@@ -301,7 +353,7 @@ private fun MinimalSlider(
                         modifier = Modifier
                             .size(4.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFCCCCCC))
+                            .background(dot)
                     )
                 }
             }
@@ -319,7 +371,7 @@ private fun MinimalSlider(
                 .offset { IntOffset(xPx.roundToInt(), 0) }
                 .size(thumbSize),
             shape = CircleShape,
-            color = Color.Black,
+            color = thumb,
             shadowElevation = 8.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -327,7 +379,7 @@ private fun MinimalSlider(
                     text = clamped.toString(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = onThumb
                 )
             }
         }
