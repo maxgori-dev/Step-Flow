@@ -89,6 +89,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
 import kotlin.coroutines.resume
+import com.google.android.gms.location.LocationServices
 
 data class RunResult(
     val distanceMeters: Float,
@@ -150,6 +151,9 @@ fun TrackingScreen(
             }
         }
     }
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+
+
 
     LaunchedEffect(Unit) {
         Intent(context, TrackingService::class.java).also { intent ->
@@ -195,9 +199,29 @@ fun TrackingScreen(
         position = CameraPosition.fromLatLngZoom(LatLng(0.0, 0.0), 16f)
     }
 
+    LaunchedEffect(Unit) {
+        try {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    cameraPositionState.move(
+                        CameraUpdateFactory.newLatLngZoom(
+                            LatLng(location.latitude, location.longitude),
+                            17f
+                        )
+                    )
+                }
+            }
+        } catch (e: SecurityException) {}
+    }
+
     LaunchedEffect(pathPoints) {
         pathPoints.lastOrNull()?.let {
-            cameraPositionState.animate(CameraUpdateFactory.newLatLng(it), 1000)
+
+            if (pathPoints.size == 1) {
+                cameraPositionState.move(CameraUpdateFactory.newLatLngZoom(it, 17f))
+            } else {
+                cameraPositionState.animate(CameraUpdateFactory.newLatLng(it), 1000)
+            }
         }
     }
 

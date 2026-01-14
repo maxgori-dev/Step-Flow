@@ -221,7 +221,7 @@ class MainActivity : AppCompatActivity() {
                                     HomeScreenNow(
                                         onRunClick = {
                                             if (hasRequiredPermissions()) {
-                                                navigateRoot(11)
+                                                navigate(11)
                                             } else {
                                                 navigate(10)
                                             }
