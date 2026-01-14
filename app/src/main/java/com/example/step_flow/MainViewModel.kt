@@ -19,6 +19,7 @@ import java.io.File
 import android.net.Uri
 import java.util.UUID
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
@@ -132,25 +133,25 @@ class MainViewModel @Inject constructor(
             )
         )
 
-    
+
     val runsFlow: StateFlow<List<RunModel>> = callbackFlow {
-        
         val listener = FirebaseFirestore.getInstance()
             .collection("runs")
             .whereEqualTo("userId", currentUserId)
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error) 
+                    close(error)
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
-                    
-                    val runs = snapshot.toObjects(RunModel::class.java)
-                    trySend(runs) 
+                    // Берем каждый документ, преобразуем в RunModel и принудительно ставим ID
+                    val runs = snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(RunModel::class.java)?.copy(id = doc.id)
+                    }
+                    trySend(runs)
                 }
             }
-        
         awaitClose { listener.remove() }
     }.stateIn(
         scope = viewModelScope,
@@ -193,6 +194,22 @@ class MainViewModel @Inject constructor(
             .putInt("goal_kcal", kcal)
             .apply()
         _goals.value = Triple(steps, minutes, kcal)
+    }
+
+    fun deleteRun(runId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                if (runId.isNotBlank()) {
+                    FirebaseFirestore.getInstance()
+                        .collection("runs")
+                        .document(runId)
+                        .delete()
+                        .await()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun saveName(value: String) {

@@ -1,5 +1,7 @@
 package com.example.step_flow
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,13 +11,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,6 +34,7 @@ import java.util.*
 fun HistoryScreen(
     runs: List<RunModel>,
     onRunClick: (RunModel) -> Unit,
+    onDeleteRun: (String) -> Unit, // Callback для удаления
     onBack: () -> Unit
 ) {
     Scaffold(
@@ -66,12 +72,67 @@ fun HistoryScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(runs) { run ->
-                    RunHistoryItem(run = run, onClick = { onRunClick(run) })
+                items(items = runs, key = { it.id }) { run ->
+                    SwipeToDeleteContainer(
+                        item = run,
+                        onDelete = { onDeleteRun(run.id) }
+                    ) {
+                        RunHistoryItem(run = run, onClick = { onRunClick(run) })
+                    }
                 }
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SwipeToDeleteContainer(
+    item: RunModel,
+    onDelete: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = {
+            if (it == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else false
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            val color by animateColorAsState(
+                targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart)
+                    MaterialTheme.colorScheme.errorContainer
+                else Color.Transparent,
+                label = "bgColor"
+            )
+            val scale by animateFloatAsState(
+                if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) 1f else 0.75f,
+                label = "iconScale"
+            )
+
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(color, RoundedCornerShape(16.dp))
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    modifier = Modifier.scale(scale),
+                    tint = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+        },
+        content = { content() },
+        enableDismissFromStartToEnd = false
+    )
 }
 
 @Composable
