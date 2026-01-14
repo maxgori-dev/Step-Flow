@@ -1,6 +1,7 @@
 package com.example.step_flow
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -38,9 +39,15 @@ fun WelcomeNameScreen(
     val density = LocalDensity.current
     var bottomBlockHeightDp by remember { mutableStateOf(0.dp) }
 
+    // ✅ Цвета темы
+    val bg = MaterialTheme.colorScheme.background
+    val textMain = MaterialTheme.colorScheme.onBackground
+    val textSub = MaterialTheme.colorScheme.onSurfaceVariant
+
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(bg) // ✅ Явный фон
             .padding(horizontal = 24.dp)
             .imePadding()
     ) {
@@ -50,7 +57,6 @@ fun WelcomeNameScreen(
             onNameChange = onNameChange,
             modifier = Modifier
                 .align(Alignment.Center)
-                
                 .offset(y = -(bottomBlockHeightDp / 2f))
                 .fillMaxWidth(0.9f)
                 .graphicsLayer {
@@ -62,7 +68,7 @@ fun WelcomeNameScreen(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .navigationBarsPadding() 
+                .navigationBarsPadding()
                 .padding(bottom = 24.dp)
                 .onSizeChanged { size ->
                     bottomBlockHeightDp = with(density) { size.height.toDp() }
@@ -72,7 +78,8 @@ fun WelcomeNameScreen(
             Text(
                 text = "Welcome!",
                 fontSize = 32.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                color = textMain // ✅
             )
 
             Spacer(Modifier.height(6.dp))
@@ -80,7 +87,7 @@ fun WelcomeNameScreen(
             Text(
                 text = "Enter your name",
                 fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f)
+                color = textSub // ✅
             )
 
             Spacer(Modifier.height(20.dp))
@@ -91,7 +98,11 @@ fun WelcomeNameScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
-                    .semantics { contentDescription = "bp_continue" }
+                    .semantics { contentDescription = "bp_continue" },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary, // ✅
+                    contentColor = MaterialTheme.colorScheme.onPrimary // ✅
+                )
             ) {
                 Text("Continue")
             }
@@ -115,7 +126,6 @@ private fun NameBadgeInput(
             modifier = Modifier.fillMaxSize()
         )
 
-        
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth(0.72f)
@@ -161,7 +171,7 @@ private fun NameBadgeInput(
                 textStyle = TextStyle(
                     fontSize = valueFontSize,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.Black,
+                    color = Color.Black, // Оставляем черным, так как фон картинки всегда белый
                     textAlign = TextAlign.Center
                 ),
                 keyboardOptions = KeyboardOptions(
@@ -180,7 +190,7 @@ private fun NameBadgeInput(
                             textAlign = TextAlign.Center,
                             fontSize = placeholderFontSize,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.Black.copy(alpha = 0.25f),
+                            color = Color.Black.copy(alpha = 0.25f), // Тоже черным для контраста с белым стикером
                             maxLines = 1
                         )
                     }
