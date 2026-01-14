@@ -49,7 +49,6 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
-import kotlin.math.min
 
 private const val DAYS_IN_WEEK = 7
 private const val GRID_CELLS = 42
@@ -136,7 +135,11 @@ fun ActivityCalendarScreen(
         val detailsReservedSpace = (170.dp * uiScale).coerceIn(140.dp, 210.dp)
         val scroll = rememberScrollState()
 
-        Box(modifier = Modifier.fillMaxSize().padding(horizontal = screenPadH, vertical = screenPadV)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = screenPadH, vertical = screenPadV)
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -165,8 +168,16 @@ fun ActivityCalendarScreen(
                         val gridPad = 12.dp * uiScale
                         val cellSize = (maxWidth - gridPad * 2f) / DAYS_IN_WEEK
 
-                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp * uiScale)) {
-                            WeekHeaderAligned(cellSize = cellSize, scale = uiScale, modifier = Modifier.padding(horizontal = gridPad))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 14.dp * uiScale)
+                        ) {
+                            WeekHeaderAligned(
+                                cellSize = cellSize,
+                                scale = uiScale,
+                                modifier = Modifier.padding(horizontal = gridPad)
+                            )
                             Spacer(Modifier.height(12.dp * uiScale))
                             SummaryBlockLight(
                                 scale = uiScale,
@@ -196,6 +207,7 @@ fun ActivityCalendarScreen(
                         }
                     }
                 }
+
                 Spacer(Modifier.height(8.dp * uiScale))
             }
 
@@ -205,7 +217,9 @@ fun ActivityCalendarScreen(
                 metrics = pickedMetrics,
                 scale = uiScale,
                 onClose = { showDetails = false },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = detailsBottomPad)
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = detailsBottomPad)
             )
         }
     }
@@ -219,9 +233,45 @@ private fun TopBarLight(title: String, scale: Float, onBack: () -> Unit, onToday
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("←", color = MaterialTheme.colorScheme.onBackground, fontSize = (22.sp * scale), modifier = Modifier.padding(end = 10.dp * scale).clickable { onBack() })
-        Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = (22.sp * scale), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Text("Today", color = Color(0xFF0A84FF), fontSize = (16.sp * scale), fontWeight = FontWeight.Medium, modifier = Modifier.padding(end = 14.dp * scale).clickable { onToday() })
+        Surface(
+            modifier = Modifier
+                .size(38.dp * scale)
+                .clip(CircleShape)
+                .clickable { onBack() },
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(22.dp * scale)
+                )
+            }
+        }
+
+        Spacer(Modifier.width(10.dp * scale))
+
+        Text(
+            title,
+            color = MaterialTheme.colorScheme.onBackground,
+            fontSize = (22.sp * scale),
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f)
+        )
+
+        Text(
+            "Today",
+            color = Color(0xFF0A84FF),
+            fontSize = (16.sp * scale),
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp * scale))
+                .clickable { onToday() }
+                .padding(horizontal = 10.dp * scale, vertical = 8.dp * scale)
+        )
     }
 }
 
@@ -231,28 +281,62 @@ private fun WeekHeaderAligned(cellSize: Dp, scale: Float, modifier: Modifier = M
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
         labels.forEachIndexed { index, s ->
             Box(modifier = Modifier.size(cellSize), contentAlignment = Alignment.Center) {
-                Text(s, color = if (index == 6) Color(0xFFE05A5A) else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = (14.sp * scale), fontWeight = FontWeight.Medium)
+                Text(
+                    s,
+                    color = if (index == 6) Color(0xFFE05A5A) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = (14.sp * scale),
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
     Spacer(Modifier.height(8.dp * scale))
-    Box(Modifier.fillMaxWidth().height((1.dp * scale).coerceAtLeast(1.dp)).background(MaterialTheme.colorScheme.secondaryContainer))
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height((1.dp * scale).coerceAtLeast(1.dp))
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+    )
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-private fun SummaryBlockLight(scale: Float, month: YearMonth, onPrevMonth: () -> Unit, onNextMonth: () -> Unit, stats: MonthStats) {
+private fun SummaryBlockLight(
+    scale: Float,
+    month: YearMonth,
+    onPrevMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    stats: MonthStats
+) {
     val monthTitle = month.month.getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " " + month.year
     Column(modifier = Modifier.padding(horizontal = 14.dp * scale)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            IconButton(onClick = onPrevMonth, modifier = Modifier.size(24.dp * scale)) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            IconButton(onClick = onPrevMonth, modifier = Modifier.size(24.dp * scale)) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Text(monthTitle, color = MaterialTheme.colorScheme.onSurface, fontSize = (18.sp * scale), fontWeight = FontWeight.SemiBold)
-            IconButton(onClick = onNextMonth, modifier = Modifier.size(24.dp * scale)) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            IconButton(onClick = onNextMonth, modifier = Modifier.size(24.dp * scale)) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         Spacer(Modifier.height(6.dp * scale))
-        Text("Goal achieved ${stats.goalDays} days", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = (16.sp * scale), fontWeight = FontWeight.Medium, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text(
+            "Goal achieved ${stats.goalDays} days",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = (16.sp * scale),
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
         Spacer(Modifier.height(12.dp * scale))
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
             Text("${stats.steps} steps", color = MaterialTheme.colorScheme.onSurface, fontSize = (16.sp * scale), fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.width(12.dp * scale))
             Text("|", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = (16.sp * scale))
@@ -431,9 +515,9 @@ private fun DayDetailsPanel(
         "$dow, $mon ${date.dayOfMonth}, ${date.year}"
     }
 
-    val stepsNow by animateIntAsState(targetValue = metrics.steps, animationSpec = tween(350))
-    val minutesNow by animateIntAsState(targetValue = metrics.minutes, animationSpec = tween(350))
-    val kcalNow by animateIntAsState(targetValue = metrics.kcal, animationSpec = tween(350))
+    val stepsNow by animateIntAsState(targetValue = metrics.steps, animationSpec = tween(350), label = "stepsNow")
+    val minutesNow by animateIntAsState(targetValue = metrics.minutes, animationSpec = tween(350), label = "minutesNow")
+    val kcalNow by animateIntAsState(targetValue = metrics.kcal, animationSpec = tween(350), label = "kcalNow")
 
     AnimatedVisibility(
         visible = visible,
@@ -441,18 +525,30 @@ private fun DayDetailsPanel(
         exit = fadeOut(tween(160)) + slideOutVertically(tween(200)) { it / 2 },
         modifier = modifier
     ) {
-        val padH = 16.dp * scale
         Surface(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = padH),
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(22.dp * scale),
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 14.dp * scale
         ) {
             Column(modifier = Modifier.padding(14.dp * scale)) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text(text = dayTitle, fontSize = (16.sp * scale), fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                    Box(modifier = Modifier.size(30.dp * scale).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer).clickable { onClose() }, contentAlignment = Alignment.Center) {
-                        Text("×", fontSize = (18.sp * scale), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = dayTitle,
+                        fontSize = (16.sp * scale),
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp * scale)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                            .clickable { onClose() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("×", fontSize = (18.sp * scale), color = MaterialTheme.colorScheme.onSecondaryContainer)
                     }
                 }
                 Spacer(Modifier.height(12.dp * scale))
@@ -504,10 +600,16 @@ data class DayMetrics(
 ) {
     companion object {
         fun empty(gSteps: Int = 6000, gMin: Int = 60, gKcal: Int = 500) = DayMetrics(
-            steps = 0, minutes = 0, kcal = 0,
-            goalSteps = gSteps, goalMinutes = gMin, goalKcal = gKcal,
+            steps = 0,
+            minutes = 0,
+            kcal = 0,
+            goalSteps = gSteps,
+            goalMinutes = gMin,
+            goalKcal = gKcal,
             overallProgress = 0f,
-            pSteps = 0f, pMinutes = 0f, pKcal = 0f
+            pSteps = 0f,
+            pMinutes = 0f,
+            pKcal = 0f
         )
     }
 }
@@ -522,9 +624,15 @@ private fun buildMonthGrid(month: YearMonth): List<DayCell> {
     val prevLast = prevMonth.atEndOfMonth()
     for (i in firstDayIndex - 1 downTo 0) cells += DayCell(date = prevLast.minusDays(i.toLong()), isOutsideMonth = true)
     var d = first
-    while (!d.isAfter(last)) { cells += DayCell(date = d, isOutsideMonth = false); d = d.plusDays(1) }
+    while (!d.isAfter(last)) {
+        cells += DayCell(date = d, isOutsideMonth = false)
+        d = d.plusDays(1)
+    }
     val nextMonth = month.plusMonths(1)
     var nd = nextMonth.atDay(1)
-    while (cells.size < GRID_CELLS) { cells += DayCell(date = nd, isOutsideMonth = true); nd = nd.plusDays(1) }
+    while (cells.size < GRID_CELLS) {
+        cells += DayCell(date = nd, isOutsideMonth = true)
+        nd = nd.plusDays(1)
+    }
     return cells
 }
