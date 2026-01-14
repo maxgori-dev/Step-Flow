@@ -219,6 +219,8 @@ class MainActivity : AppCompatActivity() {
 
                                 2 -> {
                                     HomeScreenNow(
+                                        runs = runsList,
+                                        stepsGoal = goals.first,
                                         onRunClick = {
                                             if (hasRequiredPermissions()) {
                                                 navigate(11)

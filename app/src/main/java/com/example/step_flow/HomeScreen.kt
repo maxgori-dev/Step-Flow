@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,6 +64,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.step_flow.data.RunModel
+import java.util.Calendar
 import kotlin.math.min
 
 enum class HomeTab { Calendar, Home, Profile }
@@ -70,6 +73,8 @@ enum class HomeTab { Calendar, Home, Profile }
 @Composable
 fun HomeScreenNow(
     modifier: Modifier = Modifier,
+    runs: List<RunModel>,
+    stepsGoal: Int = 8000,
     onRunClick: () -> Unit = {},
     onTileCalendar: () -> Unit = {},
     onTileHistory: () -> Unit = {},
@@ -78,7 +83,6 @@ fun HomeScreenNow(
     onTopSettings: () -> Unit = {},
     onBottomTabChange: (HomeTab) -> Unit = {}
 ) {
-    
     val bg = MaterialTheme.colorScheme.background
     val soft = MaterialTheme.colorScheme.surface
 
@@ -131,6 +135,33 @@ fun HomeScreenNow(
 
         val scroll = rememberScrollState()
 
+        val (startOfDay, endOfDay) = remember {
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            val start = cal.timeInMillis
+            cal.add(Calendar.DAY_OF_MONTH, 1)
+            val end = cal.timeInMillis
+            start to end
+        }
+
+        val todayStats by remember(runs, stepsGoal, startOfDay, endOfDay) {
+            derivedStateOf {
+                val todayRuns = runs.filter { it.timestamp in startOfDay until endOfDay }
+                val steps = todayRuns.sumOf { it.steps }
+                val activeMin = (todayRuns.sumOf { it.durationSeconds } / 60L).toInt()
+                val calories = todayRuns.sumOf { it.calories.toDouble() }.toInt()
+                TodayStats(
+                    steps = steps,
+                    goal = stepsGoal.coerceAtLeast(1),
+                    activeMin = activeMin,
+                    calories = calories
+                )
+            }
+        }
+
         Box(Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
@@ -141,7 +172,6 @@ fun HomeScreenNow(
             ) {
                 Spacer(Modifier.height(gapS))
 
-                
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -222,7 +252,11 @@ fun HomeScreenNow(
                     title = todayTitle,
                     stepsLabel = todaySteps,
                     activeLabel = todayActive,
-                    caloriesLabel = todayCalories
+                    caloriesLabel = todayCalories,
+                    steps = todayStats.steps,
+                    stepsGoal = todayStats.goal,
+                    activeMin = todayStats.activeMin,
+                    calories = todayStats.calories
                 )
 
                 Spacer(Modifier.height(16.dp * uiScale))
@@ -313,17 +347,22 @@ private fun TodaySummary(
     title: String,
     stepsLabel: String,
     activeLabel: String,
-    caloriesLabel: String
+    caloriesLabel: String,
+    steps: Int,
+    stepsGoal: Int,
+    activeMin: Int,
+    calories: Int
 ) {
     val textMain = MaterialTheme.colorScheme.onSurface
     val textSoft = MaterialTheme.colorScheme.onSurfaceVariant
     val card = MaterialTheme.colorScheme.surface
-    val chipBg = MaterialTheme.colorScheme.secondaryContainer 
+    val chipBg = MaterialTheme.colorScheme.secondaryContainer
 
-    val stepsValue = "3 420 / 8 000"
-    val activeValue = "32 min"
-    val caloriesValue = "210 kcal"
-    val progress = 3420f / 8000f
+    val progress = (steps.toFloat() / stepsGoal.toFloat()).coerceIn(0f, 1f)
+
+    val stepsValue = "${formatInt(steps)} / ${formatInt(stepsGoal)}"
+    val activeValue = "${activeMin} min"
+    val caloriesValue = "${calories} kcal"
 
     Surface(
         modifier = modifier,
@@ -365,11 +404,11 @@ private fun TodaySummary(
                     .fillMaxWidth()
                     .height(10.dp * scale)
                     .clip(RoundedCornerShape(99.dp))
-                    .background(MaterialTheme.colorScheme.secondaryContainer) 
+                    .background(MaterialTheme.colorScheme.secondaryContainer)
             ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .fillMaxWidth(progress)
                         .fillMaxSize()
                         .clip(RoundedCornerShape(99.dp))
                         .background(
@@ -422,7 +461,6 @@ private fun RunRing(
             .size(wrapSize)
             .shadow(14.dp * scale, CircleShape, clip = false)
             .clip(CircleShape)
-            
             .background(MaterialTheme.colorScheme.surface),
         contentAlignment = Alignment.Center
     ) {
@@ -435,15 +473,28 @@ private fun RunRing(
             val sweep = Brush.sweepGradient(colors = listOf(ring1, ring2, ring1), center = pivot)
 
             rotate(degrees = 300f, pivot = pivot) {
-                drawArc(brush = sweep, startAngle = -90f, sweepAngle = 360f, useCenter = false, topLeft = Offset(inset, inset), size = Size(arcSize, arcSize), style = Stroke(width = strokeW, cap = StrokeCap.Round))
+                drawArc(
+                    brush = sweep,
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    topLeft = Offset(inset, inset),
+                    size = Size(arcSize, arcSize),
+                    style = Stroke(width = strokeW, cap = StrokeCap.Round)
+                )
             }
+
             val pillW = d * 0.15f
             val pillH = d * 0.08f
             val pillX = (size.width - pillW) / 2f
             val pillY = inset - pillH * 0.35f
 
-            
-            drawRoundRect(color = Color(0xFFF2F4F7), topLeft = Offset(pillX, pillY), size = Size(pillW, pillH), cornerRadius = CornerRadius(pillH, pillH))
+            drawRoundRect(
+                color = Color(0xFFF2F4F7),
+                topLeft = Offset(pillX, pillY),
+                size = Size(pillW, pillH),
+                cornerRadius = CornerRadius(pillH, pillH)
+            )
         }
 
         Box(
@@ -451,7 +502,7 @@ private fun RunRing(
                 .size(coreSize)
                 .shadow(10.dp * scale, CircleShape, clip = false)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.secondaryContainer) 
+                .background(MaterialTheme.colorScheme.secondaryContainer)
                 .semantics { contentDescription = "bp_run" }
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center
@@ -468,7 +519,13 @@ private fun RunRing(
 }
 
 @Composable
-private fun QuickTile(modifier: Modifier, scale: Float, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+private fun QuickTile(
+    modifier: Modifier,
+    scale: Float,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
     val shape = RoundedCornerShape(22.dp * scale)
     val textMain = MaterialTheme.colorScheme.onSurface
     val textSoft = MaterialTheme.colorScheme.onSurfaceVariant
@@ -481,55 +538,163 @@ private fun QuickTile(modifier: Modifier, scale: Float, icon: androidx.compose.u
         shadowElevation = 8.dp * scale
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(12.dp * scale),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp * scale),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Box(
-                modifier = Modifier.size(44.dp * scale).clip(RoundedCornerShape(14.dp * scale))
+                modifier = Modifier
+                    .size(44.dp * scale)
+                    .clip(RoundedCornerShape(14.dp * scale))
                     .background(MaterialTheme.colorScheme.secondaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(imageVector = icon, contentDescription = label, tint = textMain, modifier = Modifier.size(22.dp * scale))
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = textMain,
+                    modifier = Modifier.size(22.dp * scale)
+                )
             }
             Spacer(Modifier.height(10.dp * scale))
-            Text(text = label, fontSize = (13.sp * scale), fontWeight = FontWeight.SemiBold, color = textSoft)
+            Text(
+                text = label,
+                fontSize = (13.sp * scale),
+                fontWeight = FontWeight.SemiBold,
+                color = textSoft
+            )
         }
     }
 }
 
 @Composable
-private fun BottomNav(modifier: Modifier, height: Dp, scale: Float, activeTab: HomeTab, inactiveColor: Color, activeColor: Color, labels: BottomLabels, onSelect: (HomeTab) -> Unit) {
+private fun BottomNav(
+    modifier: Modifier,
+    height: Dp,
+    scale: Float,
+    activeTab: HomeTab,
+    inactiveColor: Color,
+    activeColor: Color,
+    labels: BottomLabels,
+    onSelect: (HomeTab) -> Unit
+) {
     val shape = RoundedCornerShape(26.dp * scale)
     Surface(
-        modifier = modifier.fillMaxWidth().height(height),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height),
         shape = shape,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         shadowElevation = 10.dp * scale
     ) {
-        Row(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp * scale), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            BottomItem(Modifier.weight(1f), scale, labels.calendar, Icons.Outlined.CalendarToday, activeTab == HomeTab.Calendar, inactiveColor, activeColor, "bp_tab_calendar") { onSelect(HomeTab.Calendar) }
-            BottomItem(Modifier.weight(1f), scale, labels.home, Icons.Outlined.Home, activeTab == HomeTab.Home, inactiveColor, activeColor, "bp_tab_home") { onSelect(HomeTab.Home) }
-            BottomItem(Modifier.weight(1f), scale, labels.profile, Icons.Outlined.Person, activeTab == HomeTab.Profile, inactiveColor, activeColor, "bp_tab_profile") { onSelect(HomeTab.Profile) }
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp * scale),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BottomItem(
+                Modifier.weight(1f),
+                scale,
+                labels.calendar,
+                Icons.Outlined.CalendarToday,
+                activeTab == HomeTab.Calendar,
+                inactiveColor,
+                activeColor,
+                "bp_tab_calendar"
+            ) { onSelect(HomeTab.Calendar) }
+            BottomItem(
+                Modifier.weight(1f),
+                scale,
+                labels.home,
+                Icons.Outlined.Home,
+                activeTab == HomeTab.Home,
+                inactiveColor,
+                activeColor,
+                "bp_tab_home"
+            ) { onSelect(HomeTab.Home) }
+            BottomItem(
+                Modifier.weight(1f),
+                scale,
+                labels.profile,
+                Icons.Outlined.Person,
+                activeTab == HomeTab.Profile,
+                inactiveColor,
+                activeColor,
+                "bp_tab_profile"
+            ) { onSelect(HomeTab.Profile) }
         }
     }
 }
 
 @Composable
-private fun BottomItem(modifier: Modifier, scale: Float, label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, inactive: Color, active: Color, baselineId: String, onClick: () -> Unit) {
+private fun BottomItem(
+    modifier: Modifier,
+    scale: Float,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    inactive: Color,
+    active: Color,
+    baselineId: String,
+    onClick: () -> Unit
+) {
     val textColor = if (selected) active else inactive
     val iconAlpha = if (selected) 1f else 0.70f
     val weight = if (selected) FontWeight.SemiBold else FontWeight.Medium
 
     Column(
-        modifier = modifier.semantics { contentDescription = baselineId }.clickable(onClick = onClick).padding(vertical = 10.dp * scale),
+        modifier = modifier
+            .semantics { contentDescription = baselineId }
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp * scale),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(imageVector = icon, contentDescription = label, tint = textColor, modifier = Modifier.size(22.dp * scale).offset(y = (-1).dp * scale).alpha(iconAlpha))
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = textColor,
+            modifier = Modifier
+                .size(22.dp * scale)
+                .offset(y = (-1).dp * scale)
+                .alpha(iconAlpha)
+        )
         Spacer(Modifier.height(6.dp * scale))
-        Text(text = label, fontSize = (12.sp * scale), color = textColor, fontWeight = weight)
-        Box(modifier = Modifier.padding(top = 6.dp * scale).height(3.dp * scale).width((if (selected) 22.dp else 8.dp) * scale).clip(RoundedCornerShape(99.dp)).background(textColor.copy(alpha = if (selected) 0.55f else 0.18f)))
+        Text(
+            text = label,
+            fontSize = (12.sp * scale),
+            color = textColor,
+            fontWeight = weight
+        )
+        Box(
+            modifier = Modifier
+                .padding(top = 6.dp * scale)
+                .height(3.dp * scale)
+                .width((if (selected) 22.dp else 8.dp) * scale)
+                .clip(RoundedCornerShape(99.dp))
+                .background(textColor.copy(alpha = if (selected) 0.55f else 0.18f))
+        )
     }
+}
+
+private data class TodayStats(
+    val steps: Int,
+    val goal: Int,
+    val activeMin: Int,
+    val calories: Int
+)
+
+private fun formatInt(v: Int): String {
+    val s = v.toString()
+    val sb = StringBuilder()
+    for (i in s.indices) {
+        if (i > 0 && (s.length - i) % 3 == 0) sb.append(' ')
+        sb.append(s[i])
+    }
+    return sb.toString()
 }
