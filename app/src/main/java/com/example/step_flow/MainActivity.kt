@@ -358,6 +358,9 @@ class MainActivity : AppCompatActivity() {
                                             selectedRun = run
                                             navigate(13)
                                         },
+                                        onDeleteRun = { runId ->
+                                            vm.deleteRun(runId)
+                                        },
                                         onBack = { goBack() }
                                     )
                                 }
